@@ -1,0 +1,21 @@
+tests/dat_header.rs
+  s_ed3a3e1c48f099::t_995949297f3eb3 1-7
+src/core/dat.rs
+  s_ed3a3e1c48f099::t_a4b71864b55e97 2-76
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "a946c8bbcb3d307c4e22c909992d17a50ffdd5ff",
+  "prompts": {},
+  "sessions": {
+    "s_ed3a3e1c48f099": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdb2fc43-8f6d-497f-af80-61b096ab928e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Roberto Remedio <rremedio@gmail.com>"
+    }
+  }
+}
