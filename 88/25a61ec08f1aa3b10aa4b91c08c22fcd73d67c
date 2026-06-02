@@ -1,0 +1,22 @@
+tests/dat_geometry.rs
+  s_ed3a3e1c48f099::t_8c70c49c3ce65b 1-9
+src/core/dat.rs
+  s_ed3a3e1c48f099::t_f8cf1250c69a1b 77-180,182-209
+  s_ed3a3e1c48f099::t_e57bdaa488f517 181
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "8825a61ec08f1aa3b10aa4b91c08c22fcd73d67c",
+  "prompts": {},
+  "sessions": {
+    "s_ed3a3e1c48f099": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdb2fc43-8f6d-497f-af80-61b096ab928e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Roberto Remedio <rremedio@gmail.com>"
+    }
+  }
+}
