@@ -1,0 +1,25 @@
+tests/fixtures/Pallette.h
+  s_ed3a3e1c48f099::t_ca5cf64ee8268f 1-531
+tests/fixtures/original_dat_meta.json
+  s_ed3a3e1c48f099::t_636f96be9dd2e2 1-8
+tests/fixtures/svga_uv_golden.json
+  s_ed3a3e1c48f099::t_636f96be9dd2e2 1-4604
+docs/plans/2026-06-02-gp2-car-uv-mapper-plan.md
+  s_ed3a3e1c48f099::t_e60c7fb00d12fe 1-816
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "c99995cec78aa97b684e4d43b7c93339c1be41e0",
+  "prompts": {},
+  "sessions": {
+    "s_ed3a3e1c48f099": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdb2fc43-8f6d-497f-af80-61b096ab928e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Roberto Remedio <rremedio@gmail.com>"
+    }
+  }
+}
