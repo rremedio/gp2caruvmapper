@@ -1,3 +1,6 @@
+// Suppress the console window in release builds (GUI app); keep it in debug
+// builds so panics/logs are visible while developing.
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 //! GP2 Car UV Mapper — desktop entry point.
 //!
 //! The window shell lives in [`app`]; all real logic is in the GUI-free

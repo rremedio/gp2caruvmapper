@@ -15,10 +15,11 @@ The architecture is **exe-anchored**: the original `GP2.EXE` is the source of tr
 `.dat` supplies the new positions.
 
 1. **Read the SVGA UV table** (`dword_49DFFC`) directly out of `GP2.EXE` (decrypting it on
-   the way). Of 179 car faces, **121 are individually textured**; the other 58 share one
-   default entry, which is left untouched. For each textured face we recover, per vertex,
-   its `vertRef` and the original `(u,v)`. **`vertRef / 24` is the global `.dat` point
-   index**, and the vertex order is preserved.
+   the way). A face is a real **body** face when its `.dat` selector is `jam_id 530` —
+   **122 faces**; the rest (damage, shadow, no-selector) are textured by other GP2 systems
+   and left untouched. For each body face we recover, per vertex, its `vertRef` and the
+   original `(u,v)`. **`vertRef / 24` is the global `.dat` point index**, and the vertex
+   order is preserved.
 2. **Read the reshaped `.dat`** for the *new* point positions only (no `.dat` edge/face
    walk is needed — just the point coordinates).
 3. **Recompute `(u,v)`** as a uniform-scale rigid flatten of each face's points (the same
@@ -115,22 +116,11 @@ cargo build --release --target x86_64-pc-windows-gnu
 # -> target/x86_64-pc-windows-gnu/release/gp2-car-uv-mapper.exe
 ```
 
-**Observed in this build environment:** the Rust `x86_64-pc-windows-gnu` target installs
-fine, and the crates compile, but the **mingw-w64 toolchain was not present** and could
-not be installed (no sudo/network), so the cross-link step failed with:
-
-```
-error: error calling dlltool 'x86_64-w64-mingw32-dlltool': No such file or directory (os error 2)
-error: could not compile `parking_lot_core` (lib) due to 1 previous error
-```
-
-This is purely a missing-prerequisite issue, not a code or linker-config problem.
-Installing `mingw-w64` (which provides both `x86_64-w64-mingw32-gcc` and
-`x86_64-w64-mingw32-dlltool`) resolves it. If your environment lacks mingw-w64, the
-alternatives are to **build on Windows** directly, use the **MSVC target**
-(`x86_64-pc-windows-msvc` with the MSVC build tools), or build the gnu target in **CI**
-where mingw-w64 is available. The Linux release build is unaffected and works as shown
-above.
+**Verified:** the full eframe/glow GUI stack cross-links cleanly with mingw-w64. The
+resulting `.exe` is **~3.2 MB**, needs no runtime or DLLs, and runs as a windowed app — the
+console window is suppressed in release builds via `#![windows_subsystem = "windows"]` in
+`src/main.rs`. If you don't have mingw-w64, you can instead build on Windows directly or use
+the MSVC target (`x86_64-pc-windows-msvc`, with the MSVC build tools).
 
 ## Testing
 
@@ -148,9 +138,8 @@ GP2_EXE=/path/to/GP2.EXE cargo test
 
 ## Status / scope
 
-Design and reverse-engineering notes:
-[`docs/plans/2026-06-02-gp2-car-uv-mapper-design.md`](docs/plans/2026-06-02-gp2-car-uv-mapper-design.md)
-(see also the companion `…-plan.md`).
+Reverse-engineering reference: [`docs/uv-mapping.md`](docs/uv-mapping.md) — the full,
+in-game-validated writeup of GP2's car UV-mapping format.
 
 **Solved / working:**
 
@@ -158,8 +147,9 @@ Design and reverse-engineering notes:
   uniform-scale unwrap from reshaped geometry, export the BMP template, and patch the exe
   in place with full preservation of non-UV bytes.
 - Validated congruence: the unwrap this tool produces matches GP2's own stored flatten —
-  Procrustes residual **< 10% for 90 of 121** textured faces (< 20% for 109/121; median
-  ~5.6%).
+  Procrustes residual **< 10% for 91 of 122** body faces (< 20% for 110/122; median ~5.6%).
+- **In-game validated**: a reshaped car patched by this tool (geometry + UVs) renders
+  correctly in GP2.
 
 **Deferred (out of scope for v1):**
 
@@ -168,3 +158,17 @@ Design and reverse-engineering notes:
 - Per-island (non-global) UV scale.
 - `.dat`-derived vertex membership (superseded by the validated exe-anchored
   `vertRef / 24` mapping — the `.dat` edge-walk is not on the critical path).
+
+**Known gap:** ~23 *no-selector* faces (`cmd 0x0a`/`0x00`, no `jam_id`) are textured by an
+"inherit" mechanism that isn't part of the body UV table; the tool correctly leaves them
+alone. They are visible cockpit/rear panels — supporting them is future work.
+
+## Download
+
+Prebuilt Windows binary: see [**Releases**](https://github.com/rremedio/gp2caruvmapper/releases).
+Or build from source (above). You also need a copy of `GP2.EXE` (not distributed here).
+
+## License
+
+MIT — see [LICENSE](LICENSE). Not affiliated with or endorsed by the makers of Grand Prix 2;
+"GP2"/"Grand Prix 2" are referenced for interoperability only.
