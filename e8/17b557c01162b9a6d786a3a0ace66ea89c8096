@@ -1,0 +1,27 @@
+src/core/patch.rs
+  s_ed3a3e1c48f099::t_a1263ae5c5a55e 1-119
+src/core/uvtable.rs
+  s_ed3a3e1c48f099::t_85d7be24a26d4d 134-160
+src/core/mod.rs
+  s_ed3a3e1c48f099::t_5e846897b36c77 8
+tests/patch_block.rs
+  s_ed3a3e1c48f099::t_05644e3dafb01f 1-37
+tests/patch.rs
+  s_ed3a3e1c48f099::t_91241f248a55d6 1-43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "e817b557c01162b9a6d786a3a0ace66ea89c8096",
+  "prompts": {},
+  "sessions": {
+    "s_ed3a3e1c48f099": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdb2fc43-8f6d-497f-af80-61b096ab928e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Roberto Remedio <rremedio@gmail.com>"
+    }
+  }
+}
