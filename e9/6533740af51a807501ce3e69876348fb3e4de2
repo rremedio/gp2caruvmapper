@@ -1,0 +1,23 @@
+src/core/model.rs
+  s_ed3a3e1c48f099::t_6b5e58d3a325a4 15,18-20,23-60,64-81,83,97-122,128,131
+tests/recover.rs
+  s_ed3a3e1c48f099::t_9df83c18347841 1-98
+src/core/unwrap.rs
+  s_ed3a3e1c48f099::t_c7e10dbd640c4d 1177
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "e96533740af51a807501ce3e69876348fb3e4de2",
+  "prompts": {},
+  "sessions": {
+    "s_ed3a3e1c48f099": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdb2fc43-8f6d-497f-af80-61b096ab928e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Roberto Remedio <rremedio@gmail.com>"
+    }
+  }
+}
