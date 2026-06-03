@@ -1,0 +1,361 @@
+//! egui desktop shell for the GP2 Car UV Mapper.
+//!
+//! This module is intentionally thin: every piece of real logic lives in
+//! [`gp2uv::app_core::AppCore`], which is GUI-free and headless-testable. The
+//! `App::update` body only handles widgets, file dialogs, the texture cache and
+//! the (binary-only) wall-clock timestamp.
+
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use eframe::egui;
+use gp2uv::app_core::AppCore;
+
+pub struct UiApp {
+    core: AppCore,
+    /// Cached preview texture; rebuilt whenever the unwrap/labels change.
+    texture: Option<egui::TextureHandle>,
+    /// eps value the cached texture was rendered at (detect slider changes).
+    last_eps: f32,
+    /// labels value the cached texture was rendered at.
+    last_labels: bool,
+    /// Two-click guard for the destructive patch action.
+    patch_armed: bool,
+}
+
+impl UiApp {
+    pub fn new() -> Self {
+        Self {
+            core: AppCore::new(),
+            texture: None,
+            last_eps: f32::NAN,
+            last_labels: true,
+            patch_armed: false,
+        }
+    }
+
+    /// Force the preview texture to be rebuilt on the next frame.
+    fn invalidate_texture(&mut self) {
+        self.texture = None;
+    }
+
+    /// (Re)build the preview texture if needed and return a handle clone.
+    fn ensure_texture(&mut self, ctx: &egui::Context) -> Option<egui::TextureHandle> {
+        let stale = self.texture.is_none()
+            || self.last_eps != self.core.eps_deg
+            || self.last_labels != self.core.labels;
+        if stale {
+            if let Some((w, h, rgba)) = self.core.preview_rgba() {
+                let img = egui::ColorImage::from_rgba_unmultiplied([w, h], &rgba);
+                let tex =
+                    ctx.load_texture("uv_preview", img, egui::TextureOptions::NEAREST);
+                self.last_eps = self.core.eps_deg;
+                self.last_labels = self.core.labels;
+                self.texture = Some(tex);
+            } else {
+                self.texture = None;
+            }
+        }
+        self.texture.clone()
+    }
+}
+
+impl Default for UiApp {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// `YYYYMMDD-HHMMSS`-ish timestamp. Falls back to an epoch-seconds string if the
+/// clock is unavailable. The clock is used ONLY here, in the binary.
+fn timestamp() -> String {
+    match SystemTime::now().duration_since(UNIX_EPOCH) {
+        Ok(d) => {
+            let secs = d.as_secs();
+            // Civil-from-days (Howard Hinnant's algorithm), UTC.
+            let days = (secs / 86_400) as i64;
+            let sod = secs % 86_400;
+            let (hh, mm, ss) = (sod / 3600, (sod % 3600) / 60, sod % 60);
+            let z = days + 719_468;
+            let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+            let doe = z - era * 146_097;
+            let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+            let y = yoe + era * 400;
+            let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+            let mp = (5 * doy + 2) / 153;
+            let d_ = doy - (153 * mp + 2) / 5 + 1;
+            let m = if mp < 10 { mp + 3 } else { mp - 9 };
+            let y = if m <= 2 { y + 1 } else { y };
+            format!("{y:04}{m:02}{d_:02}-{hh:02}{mm:02}{ss:02}")
+        }
+        Err(_) => "00000000-000000".to_string(),
+    }
+}
+
+impl eframe::App for UiApp {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // --- Top: file bar -------------------------------------------------
+        egui::TopBottomPanel::top("files").show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                if ui.button("Open GP2.EXE…").clicked() {
+                    if let Some(path) = rfd::FileDialog::new()
+                        .add_filter("GP2 executable", &["exe", "EXE"])
+                        .pick_file()
+                    {
+                        let _ = self.core.load_exe(path);
+                        self.patch_armed = false;
+                        self.invalidate_texture();
+                    }
+                }
+                if ui.button("Open .dat…").clicked() {
+                    if let Some(path) = rfd::FileDialog::new()
+                        .add_filter("Car geometry", &["dat", "DAT"])
+                        .pick_file()
+                    {
+                        let _ = self.core.load_dat(path);
+                        self.invalidate_texture();
+                    }
+                }
+            });
+
+            ui.horizontal(|ui| {
+                match (&self.core.exe_path, &self.core.orig_table) {
+                    (Some(p), Some(t)) => ui.label(format!(
+                        "EXE: {} — {} faces present, {} real",
+                        p.display(),
+                        t.faces_present(),
+                        t.real_face_indices().len()
+                    )),
+                    _ => ui.label("EXE: (none loaded)"),
+                };
+            });
+            ui.horizontal(|ui| {
+                match (&self.core.dat_path, &self.core.geom) {
+                    (Some(p), Some(g)) => ui.label(format!(
+                        "DAT: {} — {} points",
+                        p.display(),
+                        g.points.len()
+                    )),
+                    _ => ui.label("DAT: (none loaded)"),
+                };
+            });
+        });
+
+        // --- Bottom: status log -------------------------------------------
+        egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
+            ui.label("Status:");
+            egui::ScrollArea::vertical()
+                .max_height(140.0)
+                .stick_to_bottom(true)
+                .show(ui, |ui| {
+                    let n = self.core.status.len();
+                    let start = n.saturating_sub(12);
+                    for line in &self.core.status[start..] {
+                        ui.monospace(line);
+                    }
+                });
+        });
+
+        // --- Left: controls + actions -------------------------------------
+        egui::SidePanel::left("controls")
+            .resizable(false)
+            .default_width(240.0)
+            .show(ctx, |ui| {
+                ui.heading("Controls");
+
+                let eps_resp = ui.add(
+                    egui::Slider::new(&mut self.core.eps_deg, 0.0..=60.0).text("weld angle"),
+                );
+                if eps_resp.changed() {
+                    let _ = self.core.recompute_if_ready();
+                    self.invalidate_texture();
+                }
+
+                if ui
+                    .checkbox(&mut self.core.labels, "face index labels")
+                    .changed()
+                {
+                    self.invalidate_texture();
+                }
+
+                ui.separator();
+
+                // Packing strategy selector.
+                let mut pack_changed = false;
+                egui::ComboBox::from_label("Packing")
+                    .selected_text(self.core.pack_strategy.label())
+                    .show_ui(ui, |ui| {
+                        for s in gp2uv::core::unwrap::PackStrategy::ALL {
+                            if ui
+                                .selectable_value(&mut self.core.pack_strategy, s, s.label())
+                                .clicked()
+                            {
+                                pack_changed = true;
+                            }
+                        }
+                    });
+                if ui
+                    .checkbox(&mut self.core.orient, "Rotate islands to minimize space")
+                    .changed()
+                {
+                    pack_changed = true;
+                }
+                if pack_changed {
+                    let _ = self.core.recompute_if_ready();
+                    self.invalidate_texture();
+                }
+
+                if ui
+                    .checkbox(
+                        &mut self.core.recover_collapsed,
+                        "Recover collapsed faces from geometry (experimental)",
+                    )
+                    .on_hover_text(
+                        "When a face's stored UV vertices collapse to a degenerate \
+                         polygon, rebuild it from the .dat edge-walk geometry (same \
+                         vertex count only). Fixes faces that render untextured.",
+                    )
+                    .changed()
+                {
+                    let _ = self.core.recompute_if_ready();
+                    self.invalidate_texture();
+                }
+
+                ui.separator();
+                ui.label(format!("islands: {}", self.core.n_islands));
+                if self.core.n_recovered > 0 {
+                    ui.label(format!("recovered faces: {}", self.core.n_recovered));
+                }
+                ui.label(format!("max stretch: {:.1}%", self.core.max_stretch_pct));
+                ui.label(format!("ink-fill: {:.1}%", self.core.ink_fill * 100.0));
+                ui.label(format!(
+                    "fits: {}",
+                    self.core
+                        .unwrap
+                        .as_ref()
+                        .map(|u| u.fits)
+                        .unwrap_or(false)
+                ));
+
+                ui.separator();
+                ui.heading("Actions");
+
+                ui.add_enabled_ui(self.core.ready(), |ui| {
+                    if ui.button("Save BMP…").clicked() {
+                        if let Some(path) = rfd::FileDialog::new()
+                            .add_filter("Bitmap", &["bmp"])
+                            .set_file_name("template.bmp")
+                            .save_file()
+                        {
+                            let _ = self.core.save_bmp(&path);
+                        }
+                    }
+                });
+
+                ui.separator();
+                ui.add_enabled_ui(self.core.ready(), |ui| {
+                    ui.checkbox(
+                        &mut self.core.install_geometry,
+                        "Also install 3D geometry from this .dat",
+                    )
+                    .on_hover_text(
+                        "Writes the loaded .dat's car shape into the exe too, so the \
+                         rendered geometry matches these UVs. Leave on unless the same \
+                         geometry is already installed.",
+                    );
+                    if !self.patch_armed {
+                        if ui.button("Patch GP2.EXE…").clicked() {
+                            self.patch_armed = true;
+                        }
+                    } else {
+                        let faces = self
+                            .core
+                            .orig_table
+                            .as_ref()
+                            .map(|t| t.real_face_indices().len())
+                            .unwrap_or(0);
+                        let exe = self
+                            .core
+                            .exe_path
+                            .as_ref()
+                            .map(|p| p.display().to_string())
+                            .unwrap_or_default();
+                        let geom_line = if self.core.install_geometry {
+                            "\nAlso installs the .dat's 3D geometry."
+                        } else {
+                            ""
+                        };
+                        ui.colored_label(
+                            egui::Color32::YELLOW,
+                            format!(
+                                "Patch {exe}?\nWrites {faces} faces in place.{geom_line}\nCreates a .bak backup."
+                            ),
+                        );
+                        ui.horizontal(|ui| {
+                            if ui.button("Confirm patch").clicked() {
+                                let ts = timestamp();
+                                match self.core.patch(&ts) {
+                                    Ok(rep) => self.core.status.push(format!(
+                                        "Patched {} faces{}; backup {}",
+                                        rep.faces,
+                                        if rep.geometry_installed {
+                                            " + 3D geometry"
+                                        } else {
+                                            ""
+                                        },
+                                        rep.backup_path.display()
+                                    )),
+                                    Err(e) => self.core.status.push(e),
+                                }
+                                self.patch_armed = false;
+                            }
+                            if ui.button("Cancel").clicked() {
+                                self.patch_armed = false;
+                            }
+                        });
+                    }
+                });
+
+                ui.separator();
+                if ui.button("Restore backup…").clicked() {
+                    if let (Some(target), Some(backup)) = (
+                        self.core.exe_path.clone(),
+                        rfd::FileDialog::new()
+                            .add_filter("Backup", &["bak", "*"])
+                            .pick_file(),
+                    ) {
+                        match gp2uv::core::patch::restore(&backup, &target) {
+                            Ok(()) => self.core.status.push(format!(
+                                "Restored {} from {}",
+                                target.display(),
+                                backup.display()
+                            )),
+                            Err(e) => self.core.status.push(format!("Restore failed: {e:?}")),
+                        }
+                    } else {
+                        self.core
+                            .status
+                            .push("Restore needs an EXE loaded and a .bak selected".into());
+                    }
+                }
+            });
+
+        // --- Centre: 2D preview -------------------------------------------
+        let tex = self.ensure_texture(ctx);
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.heading("UV preview");
+            match tex {
+                Some(tex) => {
+                    let size = tex.size_vec2() * 3.0; // 3x scale
+                    // Scroll in both directions so the image is never cropped, even
+                    // if the window is made smaller than the minimum on some platforms.
+                    egui::ScrollArea::both().show(ui, |ui| {
+                        ui.image((tex.id(), size));
+                    });
+                }
+                None => {
+                    ui.label("Load a GP2.EXE and a car .dat to see the unwrap.");
+                }
+            }
+        });
+    }
+}

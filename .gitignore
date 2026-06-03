@@ -1,0 +1,5 @@
+/target
+**/*.rs.bk
+GP2.EXE*
+*.bak-*
+docs/plans/
