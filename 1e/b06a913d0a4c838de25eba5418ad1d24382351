@@ -1,0 +1,21 @@
+src/core/unwrap.rs
+  s_ed3a3e1c48f099::t_a771fa6ba6af5d 237-314
+  s_ed3a3e1c48f099::t_e46b425285f383 7-8
+  s_ed3a3e1c48f099::t_eb92c5fca7bfc9 78-195
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "1eb06a913d0a4c838de25eba5418ad1d24382351",
+  "prompts": {},
+  "sessions": {
+    "s_ed3a3e1c48f099": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdb2fc43-8f6d-497f-af80-61b096ab928e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Roberto Remedio <rremedio@gmail.com>"
+    }
+  }
+}
