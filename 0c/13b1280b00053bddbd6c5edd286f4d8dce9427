@@ -1,0 +1,21 @@
+src/app_core.rs
+  s_ed3a3e1c48f099::t_042478093d60af 66
+tests/app_core.rs
+  s_ed3a3e1c48f099::t_8d8443d5bd0fc0 6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "0c13b1280b00053bddbd6c5edd286f4d8dce9427",
+  "prompts": {},
+  "sessions": {
+    "s_ed3a3e1c48f099": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdb2fc43-8f6d-497f-af80-61b096ab928e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Roberto Remedio <rremedio@gmail.com>"
+    }
+  }
+}
