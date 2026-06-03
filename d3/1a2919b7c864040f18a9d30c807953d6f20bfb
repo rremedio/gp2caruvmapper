@@ -1,0 +1,25 @@
+tests/unwrap_invariants.rs
+  s_ed3a3e1c48f099::t_7f0b192d68fdb3 37,50,53-75,81-83,85-86
+examples/pack_audit.rs
+  s_ed3a3e1c48f099::t_e9907859c653ae 61
+  s_ed3a3e1c48f099::t_51978bb118c844 80
+  s_ed3a3e1c48f099::t_13b6542bc00af1 1,6-22,35-60,62-79,81-88
+  s_ed3a3e1c48f099::t_1490563542891d 2-5
+  s_ed3a3e1c48f099::t_7dc4289570c595 23-34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "d31a2919b7c864040f18a9d30c807953d6f20bfb",
+  "prompts": {},
+  "sessions": {
+    "s_ed3a3e1c48f099": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdb2fc43-8f6d-497f-af80-61b096ab928e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Roberto Remedio <rremedio@gmail.com>"
+    }
+  }
+}
