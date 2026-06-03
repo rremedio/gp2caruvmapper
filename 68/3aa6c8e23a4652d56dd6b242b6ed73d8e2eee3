@@ -1,0 +1,19 @@
+examples/recover_audit.rs
+  s_ed3a3e1c48f099::t_f2233637fe7564 1-64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "683aa6c8e23a4652d56dd6b242b6ed73d8e2eee3",
+  "prompts": {},
+  "sessions": {
+    "s_ed3a3e1c48f099": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdb2fc43-8f6d-497f-af80-61b096ab928e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Roberto Remedio <rremedio@gmail.com>"
+    }
+  }
+}
