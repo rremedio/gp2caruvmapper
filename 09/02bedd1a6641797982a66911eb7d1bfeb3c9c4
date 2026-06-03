@@ -1,0 +1,19 @@
+README.md
+  s_ed3a3e1c48f099::t_cab43bd5874b68 3-57,61-66,69,71-149
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "0902bedd1a6641797982a66911eb7d1bfeb3c9c4",
+  "prompts": {},
+  "sessions": {
+    "s_ed3a3e1c48f099": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdb2fc43-8f6d-497f-af80-61b096ab928e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Roberto Remedio <rremedio@gmail.com>"
+    }
+  }
+}
