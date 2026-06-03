@@ -14,7 +14,8 @@ use crate::core::dat::Geometry;
 use crate::core::model::{build_face_models_opts, ModelOpts};
 use crate::core::palette::PALETTE;
 use crate::core::patch::{self, PatchReport};
-use crate::core::unwrap::{unwrap, PackOpts, PackStrategy, Unwrap};
+use crate::core::symmetric::unwrap_symmetric;
+use crate::core::unwrap::{unwrap, LayoutMode, PackOpts, PackStrategy, Unwrap};
 use crate::core::uvtable::{self, UvTable};
 
 /// Atlas / preview dimensions (match the BMP writer).
@@ -42,7 +43,9 @@ pub struct AppCore {
     /// Also write the loaded `.dat`'s 3D block into the exe when patching, so
     /// the rendered geometry and our UVs are guaranteed to match.
     pub install_geometry: bool,
-    /// Rectangle-packing strategy used by [`unwrap`].
+    /// Layout: GP2-style symmetric (default) or dense MaxRects.
+    pub layout_mode: LayoutMode,
+    /// Rectangle-packing strategy used by [`unwrap`] (dense mode only).
     pub pack_strategy: PackStrategy,
     /// Rotate islands to their min-area rectangle before packing.
     pub orient: bool,
@@ -76,6 +79,7 @@ impl AppCore {
             eps_deg: 23.0,
             labels: true,
             install_geometry: true,
+            layout_mode: LayoutMode::Gp2Symmetric,
             pack_strategy: PackStrategy::MaxRects,
             orient: true,
             recover_collapsed: true,
@@ -124,6 +128,12 @@ impl AppCore {
             "Loaded EXE {} ({present} faces present, {real} real)",
             path.display()
         ));
+        if uvtable::looks_patched(self.orig_table.as_ref().unwrap()) {
+            self.log(
+                "Note: this EXE looks already patched — layout uses the embedded \
+                 factory table, so results are unaffected (idempotent).",
+            );
+        }
         let _ = self.recompute_if_ready();
         Ok(())
     }
@@ -169,14 +179,11 @@ impl AppCore {
 
     /// Recompute the unwrap from the loaded table + geometry.
     pub fn recompute(&mut self) -> Result<(), String> {
-        let table = match self.orig_table.as_ref() {
-            Some(t) => t,
-            None => {
-                let m = "Cannot recompute: no EXE loaded".to_string();
-                self.log(&m);
-                return Err(m);
-            }
-        };
+        if self.orig_table.is_none() {
+            let m = "Cannot recompute: no EXE loaded".to_string();
+            self.log(&m);
+            return Err(m);
+        }
         let geom = match self.geom.as_ref() {
             Some(g) => g,
             None => {
@@ -185,22 +192,31 @@ impl AppCore {
                 return Err(m);
             }
         };
-        let (models, n_recovered) =
-            match build_face_models_opts(table, geom, ModelOpts {
+        // Anchor layout to the embedded FACTORY table, not the loaded EXE's table
+        // (which may already be patched by us) — keeps recompute idempotent.
+        let factory = uvtable::factory_table();
+        let (models, n_recovered) = match build_face_models_opts(
+            &factory,
+            geom,
+            ModelOpts {
                 recover_collapsed: self.recover_collapsed,
-            }) {
-                Some(m) => m,
-                None => {
-                    let m = "Failed to build face models".to_string();
-                    self.log(&m);
-                    return Err(m);
-                }
-            };
+            },
+        ) {
+            Some(m) => m,
+            None => {
+                let m = "Failed to build face models".to_string();
+                self.log(&m);
+                return Err(m);
+            }
+        };
         let pack = PackOpts {
             strategy: self.pack_strategy,
             orient: self.orient,
         };
-        let uw = unwrap(&models, geom, self.eps_deg as f64, pack);
+        let uw = match self.layout_mode {
+            LayoutMode::Dense => unwrap(&models, geom, self.eps_deg as f64, pack),
+            LayoutMode::Gp2Symmetric => unwrap_symmetric(&models, geom),
+        };
         // `geom`/`table` borrows end above; now safe to mutate self.
         self.n_recovered = n_recovered;
         if n_recovered > 0 {
@@ -230,15 +246,28 @@ impl AppCore {
             ink += (a as f64).abs() / 2.0;
         }
         self.ink_fill = ink / (PREVIEW_W as f64 * PREVIEW_H as f64);
-        self.log(format!(
-            "Recomputed: {} islands, max stretch {:.1}%, weld {:.1} deg, {} {}, ink {:.1}%",
-            self.n_islands,
-            self.max_stretch_pct,
-            self.eps_deg,
-            self.pack_strategy.label(),
-            if self.orient { "oriented" } else { "axis-aligned" },
-            self.ink_fill * 100.0,
-        ));
+        match self.layout_mode {
+            LayoutMode::Gp2Symmetric => self.log(format!(
+                "Recomputed: {} GP2 clusters, max foreshorten {:.1}%, ink {:.1}% ({})",
+                self.n_islands,
+                self.max_stretch_pct,
+                self.ink_fill * 100.0,
+                self.layout_mode.label(),
+            )),
+            LayoutMode::Dense => self.log(format!(
+                "Recomputed: {} islands, max stretch {:.1}%, weld {:.1} deg, {} {}, ink {:.1}%",
+                self.n_islands,
+                self.max_stretch_pct,
+                self.eps_deg,
+                self.pack_strategy.label(),
+                if self.orient {
+                    "oriented"
+                } else {
+                    "axis-aligned"
+                },
+                self.ink_fill * 100.0,
+            )),
+        }
         if !uw.fits {
             self.log(
                 "⚠ unwrap did not fit the 256×164 atlas at this weld angle — \
@@ -315,7 +344,9 @@ impl AppCore {
 
     /// Patch the loaded GP2.EXE in place with the current unwrap.
     pub fn patch(&self, timestamp: &str) -> Result<PatchReport, String> {
-        let orig = self
+        // Presence guard only; the table we patch FROM is the embedded factory
+        // table, so patching is idempotent regardless of the EXE's current state.
+        let _ = self
             .orig_table
             .as_ref()
             .ok_or_else(|| "No EXE loaded to patch".to_string())?;
@@ -331,10 +362,16 @@ impl AppCore {
             .geom
             .as_ref()
             .ok_or_else(|| "No .dat loaded".to_string())?;
-        let (models, _) =
-            build_face_models_opts(orig, geom, ModelOpts { recover_collapsed: self.recover_collapsed })
-                .ok_or_else(|| "Failed to build face models".to_string())?;
-        let patched = uvtable::patched_table(orig, &models, uw);
+        let factory = uvtable::factory_table();
+        let (models, _) = build_face_models_opts(
+            &factory,
+            geom,
+            ModelOpts {
+                recover_collapsed: self.recover_collapsed,
+            },
+        )
+        .ok_or_else(|| "Failed to build face models".to_string())?;
+        let patched = uvtable::patched_table(&factory, &models, uw);
         // The body faces (jam_id 530) are exactly the faces we unwrap + patch.
         // Patch only the ones that actually carry a UV slot (== the models),
         // so the in-place patch never references a missing entry.

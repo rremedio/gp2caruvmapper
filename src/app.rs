@@ -46,8 +46,7 @@ impl UiApp {
         if stale {
             if let Some((w, h, rgba)) = self.core.preview_rgba() {
                 let img = egui::ColorImage::from_rgba_unmultiplied([w, h], &rgba);
-                let tex =
-                    ctx.load_texture("uv_preview", img, egui::TextureOptions::NEAREST);
+                let tex = ctx.load_texture("uv_preview", img, egui::TextureOptions::NEAREST);
                 self.last_eps = self.core.eps_deg;
                 self.last_labels = self.core.labels;
                 self.texture = Some(tex);
@@ -130,11 +129,9 @@ impl eframe::App for UiApp {
             });
             ui.horizontal(|ui| {
                 match (&self.core.dat_path, &self.core.geom) {
-                    (Some(p), Some(g)) => ui.label(format!(
-                        "DAT: {} — {} points",
-                        p.display(),
-                        g.points.len()
-                    )),
+                    (Some(p), Some(g)) => {
+                        ui.label(format!("DAT: {} — {} points", p.display(), g.points.len()))
+                    }
                     _ => ui.label("DAT: (none loaded)"),
                 };
             });
@@ -162,12 +159,30 @@ impl eframe::App for UiApp {
             .show(ctx, |ui| {
                 ui.heading("Controls");
 
-                let eps_resp = ui.add(
-                    egui::Slider::new(&mut self.core.eps_deg, 0.0..=60.0).text("weld angle"),
-                );
-                if eps_resp.changed() {
-                    let _ = self.core.recompute_if_ready();
-                    self.invalidate_texture();
+                // Layout selector (applies to both modes).
+                let mut layout_changed = false;
+                egui::ComboBox::from_label("Layout")
+                    .selected_text(self.core.layout_mode.label())
+                    .show_ui(ui, |ui| {
+                        for m in gp2uv::core::unwrap::LayoutMode::ALL {
+                            if ui
+                                .selectable_value(&mut self.core.layout_mode, m, m.label())
+                                .clicked()
+                            {
+                                layout_changed = true;
+                            }
+                        }
+                    });
+                let dense = self.core.layout_mode == gp2uv::core::unwrap::LayoutMode::Dense;
+
+                // Weld angle + packing only apply to the dense layout.
+                if dense {
+                    let eps_resp = ui.add(
+                        egui::Slider::new(&mut self.core.eps_deg, 0.0..=60.0).text("weld angle"),
+                    );
+                    if eps_resp.changed() {
+                        layout_changed = true;
+                    }
                 }
 
                 if ui
@@ -179,27 +194,27 @@ impl eframe::App for UiApp {
 
                 ui.separator();
 
-                // Packing strategy selector.
-                let mut pack_changed = false;
-                egui::ComboBox::from_label("Packing")
-                    .selected_text(self.core.pack_strategy.label())
-                    .show_ui(ui, |ui| {
-                        for s in gp2uv::core::unwrap::PackStrategy::ALL {
-                            if ui
-                                .selectable_value(&mut self.core.pack_strategy, s, s.label())
-                                .clicked()
-                            {
-                                pack_changed = true;
+                if dense {
+                    egui::ComboBox::from_label("Packing")
+                        .selected_text(self.core.pack_strategy.label())
+                        .show_ui(ui, |ui| {
+                            for s in gp2uv::core::unwrap::PackStrategy::ALL {
+                                if ui
+                                    .selectable_value(&mut self.core.pack_strategy, s, s.label())
+                                    .clicked()
+                                {
+                                    layout_changed = true;
+                                }
                             }
-                        }
-                    });
-                if ui
-                    .checkbox(&mut self.core.orient, "Rotate islands to minimize space")
-                    .changed()
-                {
-                    pack_changed = true;
+                        });
+                    if ui
+                        .checkbox(&mut self.core.orient, "Rotate islands to minimize space")
+                        .changed()
+                    {
+                        layout_changed = true;
+                    }
                 }
-                if pack_changed {
+                if layout_changed {
                     let _ = self.core.recompute_if_ready();
                     self.invalidate_texture();
                 }
@@ -346,8 +361,8 @@ impl eframe::App for UiApp {
             match tex {
                 Some(tex) => {
                     let size = tex.size_vec2() * 3.0; // 3x scale
-                    // Scroll in both directions so the image is never cropped, even
-                    // if the window is made smaller than the minimum on some platforms.
+                                                      // Scroll in both directions so the image is never cropped, even
+                                                      // if the window is made smaller than the minimum on some platforms.
                     egui::ScrollArea::both().show(ui, |ui| {
                         ui.image((tex.id(), size));
                     });

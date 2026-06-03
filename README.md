@@ -34,10 +34,13 @@ The architecture is **exe-anchored**: the original `GP2.EXE` is the source of tr
 
 1. **Open GP2.EXE** — the app verifies it's the right file and loads the UV table.
 2. **Open your reshaped .dat** — the car you've been editing.
-3. **Tune the weld-angle slider** — controls how aggressively coplanar adjacent faces are
-   merged into a single UV island. Watch the preview update.
-4. **Choose a packing strategy** (Shelf / Skyline / **MaxRects**) and the **Rotate islands**
-   toggle. MaxRects + rotate (the default) packs densest — it beats GP2's own layout.
+3. **Pick a layout** — **GP2 / Symmetric** (default) reproduces GP2's own organisation:
+   faces grouped into GP2's canonical islands, laid out in three slices (top / left /
+   right-mirror) by planar projection, axis-aligned and paintable, with every body face
+   guaranteed present. **Dense** is the older angle-welded MaxRects pack (densest, but
+   less readable); it exposes the **weld-angle slider** and **packing strategy** below.
+4. **(Dense only) Tune the weld angle, packing strategy** (Shelf / Skyline / **MaxRects**)
+   and **Rotate islands** toggle. MaxRects + rotate packs densest.
 5. **Save BMP template** — writes the 256x164 paletted wireframe. Open it in your paint
    tool and draw your livery on top of the wireframe.
 6. **Patch GP2.EXE** — writes the recomputed UV table back into the exe. A timestamped
@@ -140,6 +143,16 @@ GP2_EXE=/path/to/GP2.EXE cargo test
 
 Reverse-engineering reference: [`docs/uv-mapping.md`](docs/uv-mapping.md) — the full,
 in-game-validated writeup of GP2's car UV-mapping format.
+
+**New in 0.2.0:**
+
+- **GP2 / Symmetric layout** (default): reproduces GP2's own grouping (canonical islands
+  read from the original table), a 3-slice top/left/right-mirror arrangement by planar
+  projection, axis-aligned and paintable, validated on stock + extreme bodywork (60s / 70s /
+  SWC) to place all 122 body faces with no overlaps.
+- **Idempotent patching**: layout is anchored to an embedded copy of GP2's *factory* UV
+  table, so re-running on an already-patched `GP2.EXE` gives the same result (the exe is now
+  only verified + written to).
 
 **Solved / working:**
 

@@ -218,6 +218,25 @@ impl PackStrategy {
     pub const ALL: [PackStrategy; 3] = [Self::Shelf, Self::Skyline, Self::MaxRects];
 }
 
+/// Which layout the unwrap uses.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum LayoutMode {
+    /// Angle-welded islands packed densely (weld-angle + pack-strategy apply).
+    Dense,
+    /// GP2-style: canonical islands, planar projection, 3 mirror slices.
+    Gp2Symmetric,
+}
+
+impl LayoutMode {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Dense => "Dense (MaxRects)",
+            Self::Gp2Symmetric => "GP2 / Symmetric",
+        }
+    }
+    pub const ALL: [LayoutMode; 2] = [Self::Gp2Symmetric, Self::Dense];
+}
+
 /// Packing options threaded through [`unwrap`].
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct PackOpts {
@@ -287,6 +306,24 @@ impl Unwrap {
 
     pub fn islands(&self) -> &[IslandStretch] {
         &self.stretches
+    }
+
+    /// Build an [`Unwrap`] from already-computed parts (used by the symmetric
+    /// layout, which assembles its own per-face atlas coords).
+    pub(crate) fn from_parts(
+        faces: std::collections::HashMap<usize, Vec<[i32; 2]>>,
+        order: Vec<usize>,
+        island_boxes: Vec<[i32; 4]>,
+        stretches: Vec<IslandStretch>,
+        fits: bool,
+    ) -> Self {
+        Self {
+            faces,
+            order,
+            island_boxes,
+            stretches,
+            fits,
+        }
     }
 }
 
@@ -535,8 +572,7 @@ fn place_face(
 fn convex_hull(pts: &[[f64; 2]]) -> Vec<[f64; 2]> {
     let mut p: Vec<[f64; 2]> = pts.to_vec();
     p.sort_by(|a, b| {
-        a[0]
-            .partial_cmp(&b[0])
+        a[0].partial_cmp(&b[0])
             .unwrap()
             .then(a[1].partial_cmp(&b[1]).unwrap())
     });
@@ -560,7 +596,8 @@ fn convex_hull(pts: &[[f64; 2]]) -> Vec<[f64; 2]> {
     // Upper hull.
     let lower_len = hull.len() + 1;
     for &pt in p.iter().rev() {
-        while hull.len() >= lower_len && cross(hull[hull.len() - 2], hull[hull.len() - 1], pt) <= 0.0
+        while hull.len() >= lower_len
+            && cross(hull[hull.len() - 2], hull[hull.len() - 1], pt) <= 0.0
         {
             hull.pop();
         }
@@ -574,7 +611,7 @@ fn convex_hull(pts: &[[f64; 2]]) -> Vec<[f64; 2]> {
 /// the island's minimum-area oriented bounding rectangle axis-aligned. Uses the
 /// rotating-calipers theorem: the min-area rectangle shares an edge with the
 /// convex hull. Returns 0.0 when orientation can't help (degenerate hull).
-fn min_area_rect_angle(pts: &[[f64; 2]]) -> f64 {
+pub(crate) fn min_area_rect_angle(pts: &[[f64; 2]]) -> f64 {
     let hull = convex_hull(pts);
     let h = hull.len();
     if h < 3 {
@@ -1134,7 +1171,11 @@ mod tests {
         assert_eq!(f.len(), 4);
 
         // P0 maps near origin.
-        assert!(dist(f[0], [0.0, 0.0]) < 1e-6, "P0 not at origin: {:?}", f[0]);
+        assert!(
+            dist(f[0], [0.0, 0.0]) < 1e-6,
+            "P0 not at origin: {:?}",
+            f[0]
+        );
         // P1 on +U axis (v-coord ~ 0, u-coord > 0).
         assert!(f[1][1].abs() < 1e-6, "P1 v-coord not zero: {:?}", f[1]);
         assert!(f[1][0] > 0.0, "P1 not on +U: {:?}", f[1]);
@@ -1225,7 +1266,11 @@ mod tests {
 
         // At eps=0 the perpendicular quad stays separate -> 2 islands.
         let islands0 = build_islands(&models, &geom, 0.0);
-        assert_eq!(islands0.len(), 2, "perpendicular quad must not weld at eps=0");
+        assert_eq!(
+            islands0.len(),
+            2,
+            "perpendicular quad must not weld at eps=0"
+        );
 
         // At eps=90 everything merges -> 1 island.
         let islands90 = build_islands(&models, &geom, 90.0);
@@ -1348,8 +1393,12 @@ mod tests {
         ];
 
         // Axis-aligned bbox area before orient.
-        let (mut x0, mut y0, mut x1, mut y1) =
-            (f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY, f64::NEG_INFINITY);
+        let (mut x0, mut y0, mut x1, mut y1) = (
+            f64::INFINITY,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::NEG_INFINITY,
+        );
         for &[x, y] in &pts {
             x0 = x0.min(x);
             y0 = y0.min(y);

@@ -9,9 +9,15 @@
 use std::collections::BTreeMap;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct UvVert { pub u: u16, pub v: u16, pub vert_ref: u16 }
+pub struct UvVert {
+    pub u: u16,
+    pub v: u16,
+    pub vert_ref: u16,
+}
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct FaceUv { pub verts: Vec<UvVert> }
+pub struct FaceUv {
+    pub verts: Vec<UvVert>,
+}
 
 #[derive(Clone, Debug)]
 pub struct UvTable {
@@ -31,7 +37,9 @@ fn u32le(b: &[u8], o: usize) -> u32 {
 
 /// Decode a decrypted SVGA block into a [`UvTable`].
 pub fn decode(dec: &[u8]) -> Option<UvTable> {
-    if dec.len() < 4 { return None; }
+    if dec.len() < 4 {
+        return None;
+    }
     let base = u32le(dec, 0) as usize;
 
     // Find nfaces: scan the offset table tracking the minimum nonzero offset;
@@ -40,16 +48,22 @@ pub fn decode(dec: &[u8]) -> Option<UvTable> {
     let mut i = 0usize;
     loop {
         let o = base + i * 2;
-        if o + 2 > dec.len() { return None; }
+        if o + 2 > dec.len() {
+            return None;
+        }
         // Stop once we've reached the start of the lowest entry.
-        if i * 2 >= min_nonzero { break; }
+        if i * 2 >= min_nonzero {
+            break;
+        }
         let off = u16le(dec, o) as usize;
         if off != 0 && off < min_nonzero {
             min_nonzero = off;
         }
         i += 1;
     }
-    if min_nonzero == usize::MAX || !min_nonzero.is_multiple_of(2) { return None; }
+    if min_nonzero == usize::MAX || !min_nonzero.is_multiple_of(2) {
+        return None;
+    }
     let nfaces = min_nonzero / 2;
 
     let mut faces: BTreeMap<usize, FaceUv> = BTreeMap::new();
@@ -57,13 +71,19 @@ pub fn decode(dec: &[u8]) -> Option<UvTable> {
 
     for f in 0..nfaces {
         let off = u16le(dec, base + f * 2);
-        if off == 0 { continue; }
+        if off == 0 {
+            continue;
+        }
         let ent = base + off as usize;
-        if ent + 2 > dec.len() { return None; }
+        if ent + 2 > dec.len() {
+            return None;
+        }
         let count = u16le(dec, ent) as usize;
         let nv = count / 4;
         let need = ent + 2 + nv * 6;
-        if need > dec.len() { return None; }
+        if need > dec.len() {
+            return None;
+        }
         let mut verts = Vec::with_capacity(nv);
         for v in 0..nv {
             let p = ent + 2 + v * 6;
@@ -93,16 +113,59 @@ pub fn decode(dec: &[u8]) -> Option<UvTable> {
         default_offset = 0;
     }
 
-    Some(UvTable { base, faces, offsets, default_offset })
+    Some(UvTable {
+        base,
+        faces,
+        offsets,
+        default_offset,
+    })
 }
 
 pub const SVGA_FILE_OFF: usize = 0x49DFFC + 0x63254; // 0x4B1250
 pub const SVGA_LEN: usize = 11476;
 
+/// The factory (unpatched) decrypted SVGA UV block, embedded so the layout is
+/// anchored to GP2's *original* table rather than whatever table happens to be
+/// in the user's loaded EXE (which may already be patched by us). 11,476 bytes.
+static FACTORY_SVGA: &[u8] = include_bytes!("factory_svga.dec.bin");
+
+/// Decode the embedded factory SVGA UV table. This is the canonical source for
+/// `vertRef`, original `(u,v)` (GP2's island grouping), and table structure —
+/// the user's EXE is used only for verification and as the patch target.
+pub fn factory_table() -> UvTable {
+    decode(FACTORY_SVGA).expect("embedded factory SVGA table must decode")
+}
+
+/// True if `table` differs from the factory table in stored `(u, v)` for more
+/// than a handful of real faces (i.e. the EXE looks already-patched).
+pub fn looks_patched(table: &UvTable) -> bool {
+    let factory = factory_table();
+    let mut diff = 0usize;
+    for idx in factory.real_face_indices() {
+        let (Some(a), Some(b)) = (factory.face(idx), table.face(idx)) else {
+            continue;
+        };
+        if a.verts.len() != b.verts.len() {
+            diff += 1;
+            continue;
+        }
+        if a.verts
+            .iter()
+            .zip(&b.verts)
+            .any(|(x, y)| x.u != y.u || x.v != y.v)
+        {
+            diff += 1;
+        }
+    }
+    diff > 8
+}
+
 /// Slice the SVGA block out of GP2.EXE, decrypt it with JAM, and decode it.
 pub fn read_svga_from_exe(exe: &[u8]) -> Option<UvTable> {
     let end = SVGA_FILE_OFF + SVGA_LEN;
-    if exe.len() < end { return None; }
+    if exe.len() < end {
+        return None;
+    }
     let mut block = exe[SVGA_FILE_OFF..end].to_vec();
     crate::core::jam::jam_xor(&mut block); // decrypt
     decode(&block)
@@ -148,11 +211,7 @@ pub fn patched_table(
 /// For non-recovered faces the `vert_ref` written equals the original, so it's
 /// a safe no-op; for recovered faces it installs the edge-walk reference. The
 /// vertex count is unchanged (an in-place patch).
-pub fn patch_block_uv(
-    block: &mut [u8],
-    table: &UvTable,
-    indices: &[usize],
-) -> Result<(), String> {
+pub fn patch_block_uv(block: &mut [u8], table: &UvTable, indices: &[usize]) -> Result<(), String> {
     let base = table.base;
     for &idx in indices {
         if base + idx * 2 + 2 > block.len() {
