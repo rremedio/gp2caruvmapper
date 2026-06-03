@@ -1,0 +1,51 @@
+Cargo.toml
+  s_ed3a3e1c48f099::t_498ded8dcaaafb 3
+src/core/symmetric.rs
+  s_ed3a3e1c48f099::t_8c2e6f29ca77d0 353
+  s_ed3a3e1c48f099::t_21257fe8faf152 26-28
+  s_ed3a3e1c48f099::t_0e63ea99777e59 351
+  s_ed3a3e1c48f099::t_8169e3f21f1b4a 359,368-369
+  s_ed3a3e1c48f099::t_4122a7195421d1 460
+  s_ed3a3e1c48f099::t_9e115bfc9fb371 605-613,615,624-632,634,643-651,653,658,660-661,663-700
+  s_ed3a3e1c48f099::t_00f1d937b9347a 1-25,29-125,127-147,149-213,215-287,348-350,352,354-358,360-367,370-430,432-459,461-603,616-622,635-641,654-657,659,662,701
+  s_ed3a3e1c48f099::t_f33dd07bf90557 288-347
+src/app.rs
+  s_ed3a3e1c48f099::t_fd050eb375ae23 162-185,197-207,209-215,217
+src/core/uvtable.rs
+  s_ed3a3e1c48f099::t_9d33e4469dc455 127-162
+README.md
+  s_ed3a3e1c48f099::t_d64a9ef21bb742 37-43
+  s_ed3a3e1c48f099::t_48391fda8108d1 147-156
+src/app_core.rs
+  s_ed3a3e1c48f099::t_93bbb51db28b4d 182-188,190,195-199
+  s_ed3a3e1c48f099::t_b60d5a4d932dcf 82
+  s_ed3a3e1c48f099::t_55b6861909fabb 46-48
+  s_ed3a3e1c48f099::t_836f021ff1ded3 216-219
+  s_ed3a3e1c48f099::t_9c48d4fd4ce26e 131-136
+  s_ed3a3e1c48f099::t_5a9ac0c4ad34c4 347-349
+  s_ed3a3e1c48f099::t_4bc59d58696d6c 17-18
+  s_ed3a3e1c48f099::t_a016bf0548f82f 365-374
+  s_ed3a3e1c48f099::t_b52b34169a2a22 249-270
+src/core/unwrap.rs
+  s_ed3a3e1c48f099::t_f324586d75729f 310-327
+  s_ed3a3e1c48f099::t_25efadd1305579 614
+  s_ed3a3e1c48f099::t_af23601b3cdbff 221-239
+tests/symmetric_layout.rs
+  s_ed3a3e1c48f099::t_e19f6f08d817b6 1-61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "bbf8baff16d6c247a36ffe88339e4efa57958a59",
+  "prompts": {},
+  "sessions": {
+    "s_ed3a3e1c48f099": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdb2fc43-8f6d-497f-af80-61b096ab928e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Roberto Remedio <rremedio@gmail.com>"
+    }
+  }
+}
