@@ -1,0 +1,26 @@
+tests/unwrap_invariants.rs
+  s_ed3a3e1c48f099::t_1b99b7220bb5f9 54-74,76-77
+  s_ed3a3e1c48f099::t_2895e7ad87d413 1-53,75,78-89
+src/core/unwrap.rs
+  s_ed3a3e1c48f099::t_302c051b771c4f 510-512
+  s_ed3a3e1c48f099::t_642cf9da66fc3d 796-901
+  s_ed3a3e1c48f099::t_edc916c8b32291 496
+  s_ed3a3e1c48f099::t_8527a66d4803f0 196-382,384-495,497-509,513-676
+  s_ed3a3e1c48f099::t_916d4db5de9fc4 383
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "3ae18c7b50880f32e0f2837bb6ab789ba6db6626",
+  "prompts": {},
+  "sessions": {
+    "s_ed3a3e1c48f099": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdb2fc43-8f6d-497f-af80-61b096ab928e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Roberto Remedio <rremedio@gmail.com>"
+    }
+  }
+}
