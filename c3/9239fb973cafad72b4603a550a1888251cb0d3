@@ -1,0 +1,37 @@
+src/app_core.rs
+  s_ed3a3e1c48f099::t_26ad072a0c248f 38-39,42-44
+  s_ed3a3e1c48f099::t_bb56d02489d8ee 71,74
+  s_ed3a3e1c48f099::t_6596ad192f5abf 154
+  s_ed3a3e1c48f099::t_c7c698ea0b8dbc 315-324
+src/app.rs
+  s_ed3a3e1c48f099::t_7b18f448f0c04f 237-245
+  s_ed3a3e1c48f099::t_ce9672162701a3 263-267,271
+  s_ed3a3e1c48f099::t_3c84d2513aa980 279,281-285
+tests/patch.rs
+  s_ed3a3e1c48f099::t_d60aaba9725154 76-79,82-85,89-97
+  s_ed3a3e1c48f099::t_315f7d00a1fd15 44-75,86-88,98-120
+  s_ed3a3e1c48f099::t_8d3fce4080e826 80-81
+README.md
+  s_ed3a3e1c48f099::t_4f04923183a6c6 38-40,42,44-60
+  s_ed3a3e1c48f099::t_4f8284ff166ca1 72-75
+src/core/patch.rs
+  s_ed3a3e1c48f099::t_b3a04feb141f62 62-78,86-100,104-110,114,117,120,139,148,156
+  s_ed3a3e1c48f099::t_78b2845797faee 15-16,18,20-21,29-30
+  s_ed3a3e1c48f099::t_7ece6c7e325c97 17,19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "c39239fb973cafad72b4603a550a1888251cb0d3",
+  "prompts": {},
+  "sessions": {
+    "s_ed3a3e1c48f099": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdb2fc43-8f6d-497f-af80-61b096ab928e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Roberto Remedio <rremedio@gmail.com>"
+    }
+  }
+}
