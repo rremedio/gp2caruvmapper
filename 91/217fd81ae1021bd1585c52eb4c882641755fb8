@@ -1,0 +1,21 @@
+examples/face_check.rs
+  s_ed3a3e1c48f099::t_e8809ca2e06548 1-57
+docs/uv-mapping.md
+  s_ed3a3e1c48f099::t_396b4ac0d00867 1-161
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "91217fd81ae1021bd1585c52eb4c882641755fb8",
+  "prompts": {},
+  "sessions": {
+    "s_ed3a3e1c48f099": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdb2fc43-8f6d-497f-af80-61b096ab928e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Roberto Remedio <rremedio@gmail.com>"
+    }
+  }
+}
