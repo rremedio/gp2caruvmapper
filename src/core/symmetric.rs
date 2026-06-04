@@ -166,6 +166,15 @@ fn project_group(grp: &[usize], pts3: &[Vec<[f64; 3]>]) -> Placed {
     if dot(c, n) < 0.0 {
         n = [-n[0], -n[1], -n[2]]; // outward
     }
+    // Snap the view direction to the nearest car axis -> a plain orthographic side / top /
+    // front view, so the part keeps its NATURAL car orientation (length horizontal, up
+    // vertical), never spun to an arbitrary angle. Genuine diagonals are preserved.
+    let ax = (0..3)
+        .max_by(|&a, &b| n[a].abs().partial_cmp(&n[b].abs()).unwrap())
+        .unwrap();
+    let mut sn = [0.0; 3];
+    sn[ax] = if n[ax] > 0.0 { 1.0 } else { -1.0 };
+    let n = sn;
     let proj_axis = |v: [f64; 3]| {
         let d = dot(v, n);
         [v[0] - d * n[0], v[1] - d * n[1], v[2] - d * n[2]]
@@ -307,10 +316,10 @@ fn map_piece(piece: Placed, f: impl Fn([f64; 2]) -> [f64; 2]) -> Placed {
         .collect()
 }
 
-/// Axis-align a projected piece: de-tilt to its min-area angle, force landscape,
-/// keep the up side up, normalise to origin. A lossless rigid rotation of the
-/// whole piece (no UV distortion) so groups sit paintable/axis-aligned even on
-/// tilted-plane bodywork (e.g. a raked nose). Returns `(piece, w, h)`.
+/// Place a projected piece in its NATURAL orientation: only 0/90/180-degree turns
+/// (a landscape flip so it lies wide, an up flip so the up side is up), then normalise
+/// to origin. No arbitrary de-tilt -- a part that genuinely slopes on the car stays
+/// sloped, it's just never spun to a min-area angle. Returns `(piece, w, h)`.
 fn orient_piece(piece: Placed) -> (Placed, f64, f64) {
     let allp: Vec<[f64; 2]> = piece.iter().flat_map(|(_, p)| p.iter().copied()).collect();
     let n = allp.len() as f64;
@@ -322,12 +331,10 @@ fn orient_piece(piece: Placed) -> (Placed, f64, f64) {
         .iter()
         .min_by(|a, b| a[1].partial_cmp(&b[1]).unwrap())
         .unwrap();
-    let ang = crate::core::unwrap::min_area_rect_angle(&allp);
-    let (c, s) = (ang.cos(), ang.sin());
-    let rot = move |p: [f64; 2]| [p[0] * c - p[1] * s, p[0] * s + p[1] * c];
-    let mut piece = map_piece(piece, rot);
-    let mut um = rot(up0);
-    let mut ctr = rot(ctr0);
+    // Keep the projection's natural orientation; only ever apply 0/90/180-degree turns.
+    let mut piece = piece;
+    let mut um = up0;
+    let mut ctr = ctr0;
     let (lo, hi) = bbox(&piece);
     if hi[1] - lo[1] > hi[0] - lo[0] {
         // force landscape: (x,y) -> (y,-x)

@@ -622,7 +622,7 @@ fn convex_hull(pts: &[[f64; 2]]) -> Vec<[f64; 2]> {
 /// the island's minimum-area oriented bounding rectangle axis-aligned. Uses the
 /// rotating-calipers theorem: the min-area rectangle shares an edge with the
 /// convex hull. Returns 0.0 when orientation can't help (degenerate hull).
-pub(crate) fn min_area_rect_angle(pts: &[[f64; 2]]) -> f64 {
+fn min_area_rect_angle(pts: &[[f64; 2]]) -> f64 {
     let hull = convex_hull(pts);
     let h = hull.len();
     if h < 3 {
