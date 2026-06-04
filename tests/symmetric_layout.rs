@@ -6,7 +6,43 @@
 //! island-bbox overlap. The UV table (face structure + original uv) is shared;
 //! only the geometry differs per shape.
 
-use gp2uv::core::{dat::Geometry, model, symmetric, uvtable};
+use gp2uv::core::{dat::Geometry, model, symmetric, unwrap, uvtable};
+
+fn stock() -> (Vec<model::FaceModel>, Geometry) {
+    let table =
+        uvtable::decode(&std::fs::read("tests/fixtures/svga_block.dec.bin").unwrap()).unwrap();
+    let geom =
+        Geometry::parse(&std::fs::read("tests/fixtures/original.dat").unwrap(), 106).unwrap();
+    let models = model::build_face_models(&table, &geom).unwrap();
+    (models, geom)
+}
+
+/// The symmetric layout tags every face with a colour-group: 0 = top/centre,
+/// 1 = left, 2 = right. A left face and its right mirror land in 1 and 2.
+#[test]
+fn symmetric_tints_faces_by_slice() {
+    let (models, geom) = stock();
+    let uw = symmetric::unwrap_symmetric(&models, &geom);
+    for m in &models {
+        assert!(uw.tint(m.face_idx).is_some(), "face {} has no tint", m.face_idx);
+    }
+    assert_eq!(uw.tint(16), Some(0), "front-fan face -> top/centre");
+    assert_eq!(uw.tint(26), Some(1), "left sidepod -> left");
+    assert_eq!(uw.tint(25), Some(2), "right sidepod (mirror of 26) -> right");
+}
+
+/// The dense layout tags faces by island index, so islands are distinguishable.
+#[test]
+fn dense_tints_faces_by_island() {
+    let (models, geom) = stock();
+    let uw = unwrap::unwrap(&models, &geom, 23.0, unwrap::PackOpts::default());
+    for m in &models {
+        assert!(uw.tint(m.face_idx).is_some(), "face {} has no tint", m.face_idx);
+    }
+    let groups: std::collections::HashSet<u8> =
+        models.iter().filter_map(|m| uw.tint(m.face_idx)).collect();
+    assert!(groups.len() > 1, "dense should tint islands distinctly");
+}
 
 fn check(dat: &str) {
     let table =

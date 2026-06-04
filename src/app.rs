@@ -10,16 +10,80 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use eframe::egui;
 use gp2uv::app_core::AppCore;
 
+/// Tint-group colours for the labelled preview. Index 0/1/2 are the symmetric
+/// layout's slices (top/centre, left, right); the rest cycle so dense-mode
+/// islands stay distinguishable.
+const TINT_PALETTE: [egui::Color32; 10] = [
+    egui::Color32::from_rgb(40, 150, 40),  // green   – top / centre
+    egui::Color32::from_rgb(50, 95, 220),  // blue    – left
+    egui::Color32::from_rgb(215, 55, 50),  // red     – right
+    egui::Color32::from_rgb(225, 140, 0),  // orange
+    egui::Color32::from_rgb(160, 70, 200), // purple
+    egui::Color32::from_rgb(0, 150, 150),  // teal
+    egui::Color32::from_rgb(205, 0, 120),  // magenta
+    egui::Color32::from_rgb(120, 120, 0),  // olive
+    egui::Color32::from_rgb(0, 110, 180),  // steel
+    egui::Color32::from_rgb(150, 80, 40),  // brown
+];
+
+/// Draw the unwrap as a crisp vector view: each face filled by its tint group,
+/// outlined, with its index centred in a readable font. `zoom` is px per atlas
+/// unit (the atlas is 256x164).
+fn paint_labelled(
+    ui: &mut egui::Ui,
+    uw: &gp2uv::core::unwrap::Unwrap,
+    zoom: f32,
+    recovered: &[usize],
+) {
+    let canvas = egui::vec2(256.0 * zoom, 164.0 * zoom);
+    let (resp, painter) = ui.allocate_painter(canvas, egui::Sense::hover());
+    let origin = resp.rect.min;
+    painter.rect_filled(resp.rect, 0.0, egui::Color32::from_gray(238));
+    let font = egui::FontId::proportional((zoom * 2.6).clamp(8.0, 30.0));
+    for (idx, poly) in uw.iter_faces() {
+        if poly.len() < 2 {
+            continue;
+        }
+        let pts: Vec<egui::Pos2> = poly
+            .iter()
+            .map(|&[x, y]| origin + egui::vec2(x as f32 * zoom, y as f32 * zoom))
+            .collect();
+        let base = TINT_PALETTE[uw.tint(idx).unwrap_or(0) as usize % TINT_PALETTE.len()];
+        let fill = egui::Color32::from_rgba_unmultiplied(base.r(), base.g(), base.b(), 70);
+        painter.add(egui::Shape::convex_polygon(
+            pts.clone(),
+            fill,
+            egui::Stroke::new(1.0, base),
+        ));
+        // Recovered (collapsed-vertRef -> edge-walk) faces get a bold gold outline.
+        if recovered.contains(&idx) {
+            painter.add(egui::Shape::closed_line(
+                pts.clone(),
+                egui::Stroke::new(2.5, egui::Color32::from_rgb(255, 190, 0)),
+            ));
+        }
+        let cx = pts.iter().map(|p| p.x).sum::<f32>() / pts.len() as f32;
+        let cy = pts.iter().map(|p| p.y).sum::<f32>() / pts.len() as f32;
+        painter.text(
+            egui::pos2(cx, cy),
+            egui::Align2::CENTER_CENTER,
+            idx.to_string(),
+            font.clone(),
+            egui::Color32::BLACK,
+        );
+    }
+}
+
 pub struct UiApp {
     core: AppCore,
     /// Cached preview texture; rebuilt whenever the unwrap/labels change.
     texture: Option<egui::TextureHandle>,
     /// eps value the cached texture was rendered at (detect slider changes).
     last_eps: f32,
-    /// labels value the cached texture was rendered at.
-    last_labels: bool,
     /// Two-click guard for the destructive patch action.
     patch_armed: bool,
+    /// Zoom factor for the labelled vector preview (px per atlas unit).
+    label_zoom: f32,
 }
 
 impl UiApp {
@@ -28,8 +92,8 @@ impl UiApp {
             core: AppCore::new(),
             texture: None,
             last_eps: f32::NAN,
-            last_labels: true,
             patch_armed: false,
+            label_zoom: 4.0,
         }
     }
 
@@ -40,15 +104,12 @@ impl UiApp {
 
     /// (Re)build the preview texture if needed and return a handle clone.
     fn ensure_texture(&mut self, ctx: &egui::Context) -> Option<egui::TextureHandle> {
-        let stale = self.texture.is_none()
-            || self.last_eps != self.core.eps_deg
-            || self.last_labels != self.core.labels;
+        let stale = self.texture.is_none() || self.last_eps != self.core.eps_deg;
         if stale {
             if let Some((w, h, rgba)) = self.core.preview_rgba() {
                 let img = egui::ColorImage::from_rgba_unmultiplied([w, h], &rgba);
                 let tex = ctx.load_texture("uv_preview", img, egui::TextureOptions::NEAREST);
                 self.last_eps = self.core.eps_deg;
-                self.last_labels = self.core.labels;
                 self.texture = Some(tex);
             } else {
                 self.texture = None;
@@ -185,13 +246,6 @@ impl eframe::App for UiApp {
                     }
                 }
 
-                if ui
-                    .checkbox(&mut self.core.labels, "face index labels")
-                    .changed()
-                {
-                    self.invalidate_texture();
-                }
-
                 ui.separator();
 
                 if dense {
@@ -237,8 +291,19 @@ impl eframe::App for UiApp {
 
                 ui.separator();
                 ui.label(format!("islands: {}", self.core.n_islands));
-                if self.core.n_recovered > 0 {
-                    ui.label(format!("recovered faces: {}", self.core.n_recovered));
+                if !self.core.recovered_faces.is_empty() {
+                    let list = self
+                        .core
+                        .recovered_faces
+                        .iter()
+                        .map(|f| f.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    ui.label(format!(
+                        "recovered {} faces (gold outline):",
+                        self.core.n_recovered
+                    ));
+                    ui.label(&list);
                 }
                 ui.label(format!("max stretch: {:.1}%", self.core.max_stretch_pct));
                 ui.label(format!("ink-fill: {:.1}%", self.core.ink_fill * 100.0));
@@ -354,23 +419,47 @@ impl eframe::App for UiApp {
                 }
             });
 
-        // --- Centre: 2D preview -------------------------------------------
+        // --- Centre: two previews side by side ----------------------------
+        // Left: the clean template (exactly what gets saved / painted on).
+        // Right: a high-res vector view, colour-tinted by slice/island with
+        // always-on readable face numbers.
         let tex = self.ensure_texture(ctx);
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("UV preview");
-            match tex {
-                Some(tex) => {
-                    let size = tex.size_vec2() * 3.0; // 3x scale
-                                                      // Scroll in both directions so the image is never cropped, even
-                                                      // if the window is made smaller than the minimum on some platforms.
-                    egui::ScrollArea::both().show(ui, |ui| {
-                        ui.image((tex.id(), size));
-                    });
+            ui.columns(2, |cols| {
+                cols[0].heading("Template (clean)");
+                match &tex {
+                    Some(tex) => {
+                        let size = tex.size_vec2() * 3.0;
+                        egui::ScrollArea::both().id_salt("clean_preview").show(
+                            &mut cols[0],
+                            |ui| {
+                                ui.image((tex.id(), size));
+                            },
+                        );
+                    }
+                    None => {
+                        cols[0].label("Load a GP2.EXE and a car .dat to see the unwrap.");
+                    }
                 }
-                None => {
-                    ui.label("Load a GP2.EXE and a car .dat to see the unwrap.");
+
+                cols[1].heading("Labels");
+                cols[1].add(
+                    egui::Slider::new(&mut self.label_zoom, 1.5..=10.0).text("zoom"),
+                );
+                let zoom = self.label_zoom;
+                let recovered = self.core.recovered_faces.as_slice();
+                match self.core.unwrap.as_ref() {
+                    Some(uw) => {
+                        egui::ScrollArea::both().id_salt("labelled_preview").show(
+                            &mut cols[1],
+                            |ui| paint_labelled(ui, uw, zoom, recovered),
+                        );
+                    }
+                    None => {
+                        cols[1].label("Load a GP2.EXE and a car .dat to see the unwrap.");
+                    }
                 }
-            }
+            });
         });
     }
 }

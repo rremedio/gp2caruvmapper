@@ -4,7 +4,6 @@ use gp2uv::app_core::AppCore;
 fn new_has_defaults() {
     let c = AppCore::new();
     assert_eq!(c.eps_deg, 23.0);
-    assert!(c.labels);
     assert!(!c.ready());
     assert_eq!(c.n_islands, 0);
     assert!(c.recover_collapsed, "recovery defaults on");
@@ -23,6 +22,26 @@ fn stock_recompute_recovers_nothing() {
     c.recompute().unwrap();
     // Stock geometry has no collapsed faces, so recovery is a no-op.
     assert_eq!(c.n_recovered, 0);
+}
+
+#[test]
+fn recompute_lists_recovered_faces() {
+    let Ok(exe) = std::env::var("GP2_EXE") else {
+        eprintln!("skip recompute_lists_recovered_faces: GP2_EXE unset");
+        return;
+    };
+    let mut c = AppCore::new();
+    c.load_exe(exe.into()).unwrap();
+    c.load_dat("tests/fixtures/SWC.dat".into()).unwrap();
+    c.recompute().unwrap();
+    // SWC has collapsed faces recovered from edge-walk geometry; the app exposes
+    // exactly which face indices were recovered, matching the count.
+    assert!(c.n_recovered > 0, "SWC should recover some faces");
+    assert_eq!(
+        c.recovered_faces.len(),
+        c.n_recovered,
+        "recovered-face list length matches the recovered count"
+    );
 }
 
 #[test]

@@ -270,6 +270,10 @@ pub struct Unwrap {
     /// Packed integer bbox per island: [x0, y0, x1, y1] (x1/y1 exclusive-ish).
     island_boxes: Vec<[i32; 4]>,
     stretches: Vec<IslandStretch>,
+    /// face_idx -> colour-group index for the labelled preview. The symmetric
+    /// layout uses the slice (0 = top/centre, 1 = left, 2 = right); the dense
+    /// layout uses the island index. Empty entries default to group 0.
+    tint: std::collections::HashMap<usize, u8>,
     /// True when the final packing fit the atlas without clamping/overflow.
     /// When false, coords were still produced but clamped into the canvas.
     pub fits: bool,
@@ -282,6 +286,11 @@ impl Unwrap {
 
     pub fn coords(&self, face_idx: usize) -> Option<&Vec<[i32; 2]>> {
         self.faces.get(&face_idx)
+    }
+
+    /// Colour-group index for a face (see [`Unwrap::tint`] field).
+    pub fn tint(&self, face_idx: usize) -> Option<u8> {
+        self.tint.get(&face_idx).copied()
     }
 
     /// Count of overlapping island-bbox pixels (0 = none). Uses a coverage
@@ -315,6 +324,7 @@ impl Unwrap {
         order: Vec<usize>,
         island_boxes: Vec<[i32; 4]>,
         stretches: Vec<IslandStretch>,
+        tint: std::collections::HashMap<usize, u8>,
         fits: bool,
     ) -> Self {
         Self {
@@ -322,6 +332,7 @@ impl Unwrap {
             order,
             island_boxes,
             stretches,
+            tint,
             fits,
         }
     }
@@ -1090,6 +1101,7 @@ pub fn unwrap(models: &[FaceModel], geom: &Geometry, eps_deg: f64, pack: PackOpt
     let mut order: Vec<usize> = Vec::new();
     let mut island_boxes: Vec<[i32; 4]> = Vec::new();
     let mut stretches: Vec<IslandStretch> = Vec::new();
+    let mut tint: std::collections::HashMap<usize, u8> = std::collections::HashMap::new();
 
     for (ii, pi) in placed.iter().enumerate() {
         let off = offsets[ii];
@@ -1130,6 +1142,7 @@ pub fn unwrap(models: &[FaceModel], geom: &Geometry, eps_deg: f64, pack: PackOpt
             }
             faces.insert(face_idx, out);
             order.push(face_idx);
+            tint.insert(face_idx, ii as u8); // colour by island index
         }
 
         island_boxes.push([ibx0, iby0, ibx1, iby1]);
@@ -1144,6 +1157,7 @@ pub fn unwrap(models: &[FaceModel], geom: &Geometry, eps_deg: f64, pack: PackOpt
         order,
         island_boxes,
         stretches,
+        tint,
         fits,
     }
 }

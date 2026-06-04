@@ -595,6 +595,7 @@ pub fn unwrap_symmetric(models: &[FaceModel], geom: &Geometry) -> Unwrap {
     let mut order: Vec<usize> = Vec::new();
     let mut island_boxes: Vec<[i32; 4]> = Vec::new();
     let mut stretches: Vec<IslandStretch> = Vec::new();
+    let mut tint: HashMap<usize, u8> = HashMap::new();
 
     let (pt, ht) = if top.is_empty() {
         (Vec::new(), 0.0)
@@ -612,6 +613,7 @@ pub fn unwrap_symmetric(models: &[FaceModel], geom: &Geometry) -> Unwrap {
             &mut order,
             &mut island_boxes,
             &mut stretches,
+            &mut tint,
         );
     }
     let ymid = ht + 2.0;
@@ -631,6 +633,7 @@ pub fn unwrap_symmetric(models: &[FaceModel], geom: &Geometry) -> Unwrap {
             &mut order,
             &mut island_boxes,
             &mut stretches,
+            &mut tint,
         );
     }
     let ybot = ymid + hl + 2.0;
@@ -650,6 +653,7 @@ pub fn unwrap_symmetric(models: &[FaceModel], geom: &Geometry) -> Unwrap {
             &mut order,
             &mut island_boxes,
             &mut stretches,
+            &mut tint,
         );
     }
 
@@ -657,7 +661,7 @@ pub fn unwrap_symmetric(models: &[FaceModel], geom: &Geometry) -> Unwrap {
     // island -> one cluster -> placed); assert it so regressions fail loudly.
     debug_assert_eq!(faces.len(), nf, "symmetric layout dropped faces");
 
-    Unwrap::from_parts(faces, order, island_boxes, stretches, true)
+    Unwrap::from_parts(faces, order, island_boxes, stretches, tint, true)
 }
 
 /// Place one cluster's faces into the atlas at `place` (scaled-space) + `y_off`.
@@ -672,10 +676,12 @@ fn emit(
     order: &mut Vec<usize>,
     island_boxes: &mut Vec<[i32; 4]>,
     stretches: &mut Vec<IslandStretch>,
+    tint: &mut HashMap<usize, u8>,
 ) {
     let mut bb = [i32::MAX, i32::MAX, i32::MIN, i32::MIN];
     for (fi, poly) in &cl.faces {
         let face_idx = models[*fi].face_idx;
+        tint.insert(face_idx, cl.slice); // 0 = top/centre, 1 = left, 2 = right
         let out: Vec<[i32; 2]> = poly
             .iter()
             .map(|p| {

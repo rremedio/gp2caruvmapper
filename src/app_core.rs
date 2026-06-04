@@ -39,7 +39,6 @@ pub struct AppCore {
     /// Raw bytes of the loaded `.dat` (for optionally installing geometry).
     pub dat_bytes: Option<Vec<u8>>,
     pub eps_deg: f32,
-    pub labels: bool,
     /// Also write the loaded `.dat`'s 3D block into the exe when patching, so
     /// the rendered geometry and our UVs are guaranteed to match.
     pub install_geometry: bool,
@@ -56,6 +55,8 @@ pub struct AppCore {
     pub n_islands: usize,
     /// Faces recovered from edge-walk geometry in the last recompute.
     pub n_recovered: usize,
+    /// Face indices that were recovered (which faces `n_recovered` counts).
+    pub recovered_faces: Vec<usize>,
     pub max_stretch_pct: f64,
     /// Ink-fill of the last unwrap: sum of face polygon areas / atlas area.
     pub ink_fill: f64,
@@ -77,7 +78,6 @@ impl AppCore {
             dat_path: None,
             dat_bytes: None,
             eps_deg: 23.0,
-            labels: true,
             install_geometry: true,
             layout_mode: LayoutMode::Gp2Symmetric,
             pack_strategy: PackStrategy::MaxRects,
@@ -87,6 +87,7 @@ impl AppCore {
             status: Vec::new(),
             n_islands: 0,
             n_recovered: 0,
+            recovered_faces: Vec::new(),
             max_stretch_pct: 0.0,
             ink_fill: 0.0,
         }
@@ -219,6 +220,11 @@ impl AppCore {
         };
         // `geom`/`table` borrows end above; now safe to mutate self.
         self.n_recovered = n_recovered;
+        self.recovered_faces = models
+            .iter()
+            .filter(|m| m.recovered)
+            .map(|m| m.face_idx)
+            .collect();
         if n_recovered > 0 {
             self.log(format!(
                 "Recovered {n_recovered} collapsed faces from geometry"
@@ -289,8 +295,10 @@ impl AppCore {
     }
 
     fn opts(&self) -> Opts {
+        // The BMP template (saved file + raster preview) is always label-free —
+        // it's what you paint on. Face numbers live only in the labelled GUI pane.
         Opts {
-            labels: self.labels,
+            labels: false,
             wire_idx: WIRE_IDX,
             label_idx: LABEL_IDX,
         }
