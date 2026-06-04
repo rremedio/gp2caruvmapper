@@ -144,6 +144,17 @@ GP2_EXE=/path/to/GP2.EXE cargo test
 Reverse-engineering reference: [`docs/uv-mapping.md`](docs/uv-mapping.md) — the full,
 in-game-validated writeup of GP2's car UV-mapping format.
 
+**New in 0.3.0:**
+
+- **Side-by-side previews**: the clean template (what you paint on) on the left, and a
+  high-res **Labels** pane on the right — faces tinted by group (symmetric slices
+  green/blue/red, dense islands cycled) with always-on readable face numbers and a zoom
+  slider. Face numbers now live only in this pane (the saved BMP stays label-free).
+- **Recovered faces are shown**: faces rescued from edge-walk geometry get a bold gold
+  outline in the Labels pane and their numbers listed in the controls.
+- **Remembers your last GP2.EXE**: auto-loads it on startup, and the file dialogs open in
+  the last-used folders.
+
 **New in 0.2.0:**
 
 - **GP2 / Symmetric layout** (default): reproduces GP2's own grouping (canonical islands

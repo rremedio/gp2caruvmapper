@@ -1,6 +1,6 @@
 [package]
 name = "gp2-car-uv-mapper"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "Compute non-distorting UV unwraps for reshaped GP2 car .dat files, export a BMP painting template, and patch GP2.EXE."
 authors = ["Roberto Remedio"]
