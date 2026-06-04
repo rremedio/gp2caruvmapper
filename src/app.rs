@@ -104,7 +104,7 @@ impl UiApp {
             texture: None,
             last_eps: f32::NAN,
             patch_armed: false,
-            label_zoom: 4.0,
+            label_zoom: 3.0,
             dat_start_dir,
         }
     }
