@@ -84,16 +84,28 @@ pub struct UiApp {
     patch_armed: bool,
     /// Zoom factor for the labelled vector preview (px per atlas unit).
     label_zoom: f32,
+    /// Folder to open the .dat file dialog in first (last session's .dat dir).
+    dat_start_dir: Option<std::path::PathBuf>,
 }
 
 impl UiApp {
     pub fn new() -> Self {
+        let mut core = AppCore::new();
+        // Remember the last GP2.EXE: auto-load it so the app comes up ready.
+        let (recent_exe, recent_dat) = AppCore::recent_paths();
+        if let Some(exe) = recent_exe {
+            if exe.exists() {
+                let _ = core.load_exe(exe);
+            }
+        }
+        let dat_start_dir = recent_dat.and_then(|d| d.parent().map(|p| p.to_path_buf()));
         Self {
-            core: AppCore::new(),
+            core,
             texture: None,
             last_eps: f32::NAN,
             patch_armed: false,
             label_zoom: 4.0,
+            dat_start_dir,
         }
     }
 
@@ -157,20 +169,33 @@ impl eframe::App for UiApp {
         egui::TopBottomPanel::top("files").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 if ui.button("Open GP2.EXE…").clicked() {
-                    if let Some(path) = rfd::FileDialog::new()
-                        .add_filter("GP2 executable", &["exe", "EXE"])
-                        .pick_file()
-                    {
+                    let start = self
+                        .core
+                        .exe_path
+                        .as_ref()
+                        .and_then(|p| p.parent().map(|p| p.to_path_buf()));
+                    let mut dlg = rfd::FileDialog::new().add_filter("GP2 executable", &["exe", "EXE"]);
+                    if let Some(dir) = start {
+                        dlg = dlg.set_directory(dir);
+                    }
+                    if let Some(path) = dlg.pick_file() {
                         let _ = self.core.load_exe(path);
                         self.patch_armed = false;
                         self.invalidate_texture();
                     }
                 }
                 if ui.button("Open .dat…").clicked() {
-                    if let Some(path) = rfd::FileDialog::new()
-                        .add_filter("Car geometry", &["dat", "DAT"])
-                        .pick_file()
-                    {
+                    let start = self
+                        .core
+                        .dat_path
+                        .as_ref()
+                        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+                        .or_else(|| self.dat_start_dir.clone());
+                    let mut dlg = rfd::FileDialog::new().add_filter("Car geometry", &["dat", "DAT"]);
+                    if let Some(dir) = start {
+                        dlg = dlg.set_directory(dir);
+                    }
+                    if let Some(path) = dlg.pick_file() {
                         let _ = self.core.load_dat(path);
                         self.invalidate_texture();
                     }

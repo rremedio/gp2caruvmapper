@@ -135,6 +135,7 @@ impl AppCore {
                  factory table, so results are unaffected (idempotent).",
             );
         }
+        self.remember();
         let _ = self.recompute_if_ready();
         Ok(())
     }
@@ -174,6 +175,7 @@ impl AppCore {
             "Loaded .dat {} ({npoints} points, start {used})",
             path.display()
         ));
+        self.remember();
         let _ = self.recompute_if_ready();
         Ok(())
     }
@@ -398,5 +400,69 @@ impl AppCore {
 
     pub fn ready(&self) -> bool {
         self.orig_table.is_some() && self.geom.is_some() && self.unwrap.is_some()
+    }
+
+    /// Persist the currently-loaded EXE/.dat paths for the next launch.
+    fn remember(&self) {
+        let Some(path) = config_file() else { return };
+        if let Some(dir) = path.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        let s = format_recent(self.exe_path.as_deref(), self.dat_path.as_deref());
+        let _ = std::fs::write(path, s);
+    }
+
+    /// The last-used (exe, dat) paths from a previous session, if any.
+    pub fn recent_paths() -> (Option<PathBuf>, Option<PathBuf>) {
+        match config_file().and_then(|p| std::fs::read_to_string(p).ok()) {
+            Some(s) => parse_recent(&s),
+            None => (None, None),
+        }
+    }
+}
+
+/// Platform config file for remembering recent paths (no extra deps).
+/// Linux/mac: `$XDG_CONFIG_HOME` or `~/.config`; Windows: `%APPDATA%`.
+fn config_file() -> Option<PathBuf> {
+    let base = std::env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("APPDATA").map(PathBuf::from))
+        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))?;
+    Some(base.join("gp2-car-uv-mapper").join("recent.txt"))
+}
+
+/// Serialise recent paths: line 1 = EXE, line 2 = .dat (blank when absent).
+fn format_recent(exe: Option<&Path>, dat: Option<&Path>) -> String {
+    let line = |p: Option<&Path>| p.map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
+    format!("{}\n{}\n", line(exe), line(dat))
+}
+
+/// Parse the recent file into (exe, dat); blank/missing lines become None.
+fn parse_recent(s: &str) -> (Option<PathBuf>, Option<PathBuf>) {
+    let mut lines = s.lines();
+    let pick = |l: Option<&str>| l.map(str::trim).filter(|l| !l.is_empty()).map(PathBuf::from);
+    let exe = pick(lines.next());
+    let dat = pick(lines.next());
+    (exe, dat)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn recent_paths_round_trip() {
+        let exe = PathBuf::from("/games/GP2.EXE");
+        let dat = PathBuf::from("/cars/mclaren.dat");
+        let (re, rd) = parse_recent(&format_recent(Some(&exe), Some(&dat)));
+        assert_eq!(re.as_deref(), Some(exe.as_path()));
+        assert_eq!(rd.as_deref(), Some(dat.as_path()));
+
+        // missing entries round-trip to None (and a blank file is all-None).
+        let (re, rd) = parse_recent(&format_recent(Some(&exe), None));
+        assert_eq!(re.as_deref(), Some(exe.as_path()));
+        assert!(rd.is_none());
+        let (re, rd) = parse_recent("");
+        assert!(re.is_none() && rd.is_none());
     }
 }
