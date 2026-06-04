@@ -1,0 +1,45 @@
+src/core/unwrap.rs
+  s_ed3a3e1c48f099::t_c7e4f65393800d 1160
+  s_ed3a3e1c48f099::t_ce00e8a19282b2 273-276,291-293
+  s_ed3a3e1c48f099::t_a70a20eabfc581 1145
+  s_ed3a3e1c48f099::t_cf8d18af3d43ad 1104
+  s_ed3a3e1c48f099::t_87c747579ab383 327,335
+tests/symmetric_layout.rs
+  s_ed3a3e1c48f099::t_66f78a4ce33397 9-45
+src/core/symmetric.rs
+  s_ed3a3e1c48f099::t_f5c9141668bb98 679,684
+  s_ed3a3e1c48f099::t_27f337e0e52448 598
+  s_ed3a3e1c48f099::t_ee2e58be9bad63 664
+  s_ed3a3e1c48f099::t_4d561295685048 616,636,656
+src/app_core.rs
+  s_ed3a3e1c48f099::t_184f15f1182ed4 58-59
+  s_ed3a3e1c48f099::t_e5e1228ccbfa51 298-299,301
+  s_ed3a3e1c48f099::t_8eddf74fcce42b 90
+  s_ed3a3e1c48f099::t_75c1c9510f3fd9 223-227
+tests/app_core.rs
+  s_ed3a3e1c48f099::t_9c65af53f2df8d 28-46
+src/app.rs
+  s_ed3a3e1c48f099::t_3d8cdd6ee193f6 85-86,96
+  s_ed3a3e1c48f099::t_446e482a683198 294-306
+  s_ed3a3e1c48f099::t_97beeae8dd5819 422-425,428-432,434-442,444-449,451-452,454,456-460,462
+  s_ed3a3e1c48f099::t_bae9ab0595e2ff 450,455
+  s_ed3a3e1c48f099::t_62e2787b0b015d 32-37,58-64
+  s_ed3a3e1c48f099::t_8f6921895ac3be 13-31,38-57,65-76
+  s_ed3a3e1c48f099::t_659546d9bd613d 107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "73a35ebd3691cb72b1d000d8e0b25536fe0384bc",
+  "prompts": {},
+  "sessions": {
+    "s_ed3a3e1c48f099": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdb2fc43-8f6d-497f-af80-61b096ab928e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Roberto Remedio <rremedio@gmail.com>"
+    }
+  }
+}
