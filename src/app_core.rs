@@ -14,7 +14,7 @@ use crate::core::dat::Geometry;
 use crate::core::model::{build_face_models_opts, ModelOpts};
 use crate::core::palette::PALETTE;
 use crate::core::patch::{self, PatchReport};
-use crate::core::symmetric::unwrap_symmetric;
+use crate::core::symmetric::{unwrap_compact, unwrap_symmetric};
 use crate::core::unwrap::{unwrap, LayoutMode, PackOpts, PackStrategy, Unwrap};
 use crate::core::uvtable::{self, UvTable};
 
@@ -219,6 +219,7 @@ impl AppCore {
         let uw = match self.layout_mode {
             LayoutMode::Dense => unwrap(&models, geom, self.eps_deg as f64, pack),
             LayoutMode::Gp2Symmetric => unwrap_symmetric(&models, geom),
+            LayoutMode::Gp2Compact => unwrap_compact(&models, geom),
         };
         // `geom`/`table` borrows end above; now safe to mutate self.
         self.n_recovered = n_recovered;
@@ -255,7 +256,7 @@ impl AppCore {
         }
         self.ink_fill = ink / (PREVIEW_W as f64 * PREVIEW_H as f64);
         match self.layout_mode {
-            LayoutMode::Gp2Symmetric => self.log(format!(
+            LayoutMode::Gp2Symmetric | LayoutMode::Gp2Compact => self.log(format!(
                 "Recomputed: {} GP2 clusters, max foreshorten {:.1}%, ink {:.1}% ({})",
                 self.n_islands,
                 self.max_stretch_pct,

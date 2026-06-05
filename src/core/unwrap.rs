@@ -225,6 +225,8 @@ pub enum LayoutMode {
     Dense,
     /// GP2-style: canonical islands, planar projection, 3 mirror slices.
     Gp2Symmetric,
+    /// GP2 canonical islands packed densely (MaxRects, no slices/mirror) for max space.
+    Gp2Compact,
 }
 
 impl LayoutMode {
@@ -232,9 +234,10 @@ impl LayoutMode {
         match self {
             Self::Dense => "Dense (MaxRects)",
             Self::Gp2Symmetric => "GP2 / Symmetric",
+            Self::Gp2Compact => "GP2 / Compact",
         }
     }
-    pub const ALL: [LayoutMode; 2] = [Self::Gp2Symmetric, Self::Dense];
+    pub const ALL: [LayoutMode; 3] = [Self::Gp2Symmetric, Self::Gp2Compact, Self::Dense];
 }
 
 /// Packing options threaded through [`unwrap`].
@@ -910,7 +913,7 @@ fn skyline_pack(dims: &[[f64; 2]], gutter: f64) -> (Vec<[f64; 2]>, Vec<bool>, bo
 /// leftover side (trying both orientations). Free rects are split
 /// guillotine-free and contained free rects are pruned. Islands inserted by
 /// max(w,h) desc. Returns `(offsets, rotated, fits)`.
-fn maxrects_pack(dims: &[[f64; 2]], gutter: f64) -> (Vec<[f64; 2]>, Vec<bool>, bool) {
+pub(crate) fn maxrects_pack(dims: &[[f64; 2]], gutter: f64) -> (Vec<[f64; 2]>, Vec<bool>, bool) {
     let n = dims.len();
     let mut offsets = vec![[0.0f64; 2]; n];
     let mut rotated = vec![false; n];

@@ -76,6 +76,47 @@ fn check(dat: &str) {
     assert_eq!(uw.max_overlap(), 0, "{dat}: island bboxes overlap");
 }
 
+fn check_compact(dat: &str) {
+    let table =
+        uvtable::decode(&std::fs::read("tests/fixtures/svga_block.dec.bin").unwrap()).unwrap();
+    let geom = Geometry::parse(&std::fs::read(dat).unwrap(), 106).unwrap();
+    let models = model::build_face_models(&table, &geom).unwrap();
+    let uw = symmetric::unwrap_compact(&models, &geom);
+    for m in &models {
+        let c = uw
+            .coords(m.face_idx)
+            .unwrap_or_else(|| panic!("{dat}: face {} missing (compact)", m.face_idx));
+        assert_eq!(c.len(), m.point_indices.len(), "{dat}: face {} vtx count", m.face_idx);
+        for &[u, v] in c {
+            assert!(
+                (0..256).contains(&u) && (0..164).contains(&v),
+                "{dat}: compact coord {u},{v} out of canvas"
+            );
+        }
+    }
+    assert_eq!(uw.max_overlap(), 0, "{dat}: compact island overlap");
+}
+
+#[test]
+fn compact_stock() {
+    check_compact("tests/fixtures/original.dat");
+}
+
+#[test]
+fn compact_extreme_60s() {
+    check_compact("tests/fixtures/60s.dat");
+}
+
+#[test]
+fn compact_extreme_70s() {
+    check_compact("tests/fixtures/70s.dat");
+}
+
+#[test]
+fn compact_extreme_swc() {
+    check_compact("tests/fixtures/SWC.dat");
+}
+
 #[test]
 fn symmetric_stock() {
     check("tests/fixtures/original.dat");

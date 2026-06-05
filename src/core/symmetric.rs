@@ -257,7 +257,6 @@ struct Cluster {
     faces: Vec<(usize, Vec<[f64; 2]>)>, // (model_pos, local coords)
     w: f64,
     h: f64,
-    cy: f64,          // mean car-length (for front-to-back ordering)
     slice: u8,        // 0 top, 1 left, 2 right
     foreshorten: f64, // worst proj/true ratio in [0,1]
 }
@@ -386,13 +385,8 @@ fn build_cluster(grp: &[usize], pts3: &[Vec<[f64; 3]>], pidx: &[HashSet<usize>])
             ch = ch.max(p[1]);
         }
     }
-    // mean car-length (3D y) + worst foreshorten across faces.
-    let mut cy = 0.0;
+    // worst foreshorten across faces.
     let mut worst = 1.0_f64;
-    for &fi in grp {
-        cy += centroid(&pts3[fi])[1];
-    }
-    cy /= grp.len() as f64;
     for (fi, poly) in &faces {
         let ta = norm3(newell(&pts3[*fi])) / 2.0;
         if ta > 1.0 {
@@ -403,18 +397,23 @@ fn build_cluster(grp: &[usize], pts3: &[Vec<[f64; 3]>], pidx: &[HashSet<usize>])
         faces,
         w: cw,
         h: ch,
-        cy,
         slice: classify(grp, pts3),
         foreshorten: worst,
     }
 }
 
-/// Full-width skyline pack of clusters (front-to-back by cy), unlimited height.
+/// Full-width skyline pack of clusters (largest-first), unlimited height.
 /// Returns scaled-space placements per cluster and the used height.
 fn slice_pack(infos: &[&Cluster], maxw: f64, sc: f64) -> (Vec<[f64; 2]>, f64) {
     let mut segs: Vec<[f64; 3]> = vec![[0.0, maxw, 0.0]];
     let mut order: Vec<usize> = (0..infos.len()).collect();
-    order.sort_by(|&a, &b| infos[a].cy.partial_cmp(&infos[b].cy).unwrap());
+    // Pack largest-first: fills the band far tighter than front-to-back ordering, which
+    // raises the global scale (everything bigger, much less wasted space).
+    order.sort_by(|&a, &b| {
+        (infos[b].w * infos[b].h)
+            .partial_cmp(&(infos[a].w * infos[a].h))
+            .unwrap()
+    });
     let maxy = |segs: &[[f64; 3]], x: f64, w: f64| -> f64 {
         let mut y = 0.0_f64;
         for s in segs {
@@ -463,9 +462,11 @@ fn slice_pack(infos: &[&Cluster], maxw: f64, sc: f64) -> (Vec<[f64; 2]>, f64) {
     (place, used)
 }
 
-/// GP2-style symmetric layout. Returns an [`Unwrap`] like [`crate::core::unwrap::unwrap`].
-#[allow(clippy::needless_range_loop)] // singleton-fold needs both island indices to merge
-pub fn unwrap_symmetric(models: &[FaceModel], geom: &Geometry) -> Unwrap {
+/// Build the GP2 canonical-island clusters (UV-weld grouping, fold singletons, then
+/// project + orient each into its natural car view). Shared by the symmetric and
+/// compact layouts.
+#[allow(clippy::needless_range_loop)] // singleton-fold needs both island indices
+fn build_clusters(models: &[FaceModel], geom: &Geometry) -> Vec<Cluster> {
     let nf = models.len();
     let pts3: Vec<Vec<[f64; 3]>> = models
         .iter()
@@ -555,11 +556,16 @@ pub fn unwrap_symmetric(models: &[FaceModel], geom: &Geometry) -> Unwrap {
         }
     }
 
-    // ---- build clusters, assign slices ----
-    let clusters: Vec<Cluster> = folded
+    folded
         .iter()
         .map(|grp| build_cluster(grp, &pts3, &pidx))
-        .collect();
+        .collect()
+}
+
+/// GP2-style symmetric layout. Returns an [`Unwrap`] like [`crate::core::unwrap::unwrap`].
+pub fn unwrap_symmetric(models: &[FaceModel], geom: &Geometry) -> Unwrap {
+    let nf = models.len();
+    let clusters = build_clusters(models, geom);
     let by_slice = |s: u8| -> Vec<&Cluster> { clusters.iter().filter(|c| c.slice == s).collect() };
     let top = by_slice(0);
     let left = by_slice(1);
@@ -669,6 +675,75 @@ pub fn unwrap_symmetric(models: &[FaceModel], geom: &Geometry) -> Unwrap {
     debug_assert_eq!(faces.len(), nf, "symmetric layout dropped faces");
 
     Unwrap::from_parts(faces, order, island_boxes, stretches, tint, true)
+}
+
+/// Compact layout: the same GP2 canonical islands (natural orientation, heroes intact),
+/// but packed with MaxRects across the whole atlas — no slices, no mirror — for maximum
+/// space usage. Tint still marks each part's side (top/left/right) for the labelled view.
+pub fn unwrap_compact(models: &[FaceModel], geom: &Geometry) -> Unwrap {
+    let nf = models.len();
+    let clusters = build_clusters(models, geom);
+    let raw: Vec<[f64; 2]> = clusters.iter().map(|c| [c.w, c.h]).collect();
+    let gutter = 1.0;
+    let fits_at = |s: f64| {
+        let dims: Vec<[f64; 2]> = raw.iter().map(|d| [d[0] * s, d[1] * s]).collect();
+        crate::core::unwrap::maxrects_pack(&dims, gutter)
+    };
+    let mut lo = 1e-3;
+    let mut hi = 50.0;
+    for _ in 0..40 {
+        let mid = 0.5 * (lo + hi);
+        if fits_at(mid).2 {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    let sc = lo;
+    let (offsets, rotated, fits) = fits_at(sc);
+
+    let mut faces: HashMap<usize, Vec<[i32; 2]>> = HashMap::new();
+    let mut order: Vec<usize> = Vec::new();
+    let mut island_boxes: Vec<[i32; 4]> = Vec::new();
+    let mut stretches: Vec<IslandStretch> = Vec::new();
+    let mut tint: HashMap<usize, u8> = HashMap::new();
+    for (ci, cl) in clusters.iter().enumerate() {
+        let off = offsets[ci];
+        let rot = rotated[ci];
+        let w = cl.w * sc; // scaled width, for the 90-degree rotation formula
+        let mut bb = [i32::MAX, i32::MAX, i32::MIN, i32::MIN];
+        for (fi, poly) in &cl.faces {
+            let face_idx = models[*fi].face_idx;
+            let out: Vec<[i32; 2]> = poly
+                .iter()
+                .map(|p| {
+                    let (mut nx, mut ny) = (p[0] * sc, p[1] * sc);
+                    if rot {
+                        let (rx, ry) = (ny, w - nx);
+                        nx = rx;
+                        ny = ry;
+                    }
+                    let u = ((off[0] + nx).round() as i32).clamp(0, 255);
+                    let v = ((off[1] + ny).round() as i32).clamp(0, 163);
+                    bb[0] = bb[0].min(u);
+                    bb[1] = bb[1].min(v);
+                    bb[2] = bb[2].max(u + 1);
+                    bb[3] = bb[3].max(v + 1);
+                    [u, v]
+                })
+                .collect();
+            faces.insert(face_idx, out);
+            order.push(face_idx);
+            tint.insert(face_idx, cl.slice);
+        }
+        island_boxes.push(bb);
+        stretches.push(IslandStretch {
+            face_count: cl.faces.len(),
+            max_stretch_pct: (1.0 - cl.foreshorten) * 100.0,
+        });
+    }
+    debug_assert_eq!(faces.len(), nf, "compact layout dropped faces");
+    Unwrap::from_parts(faces, order, island_boxes, stretches, tint, fits)
 }
 
 /// Place one cluster's faces into the atlas at `place` (scaled-space) + `y_off`.
