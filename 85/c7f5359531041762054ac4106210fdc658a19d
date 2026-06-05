@@ -1,0 +1,22 @@
+Cargo.toml
+  s_ed3a3e1c48f099::t_89170545bac535 3
+README.md
+  s_ed3a3e1c48f099::t_c289a2b0462833 38-41
+  s_ed3a3e1c48f099::t_0e9723727f3182 147-157
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "85c7f5359531041762054ac4106210fdc658a19d",
+  "prompts": {},
+  "sessions": {
+    "s_ed3a3e1c48f099": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bdb2fc43-8f6d-497f-af80-61b096ab928e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Roberto Remedio <rremedio@gmail.com>"
+    }
+  }
+}
