@@ -35,10 +35,10 @@ The architecture is **exe-anchored**: the original `GP2.EXE` is the source of tr
 1. **Open GP2.EXE** — the app verifies it's the right file and loads the UV table.
 2. **Open your reshaped .dat** — the car you've been editing.
 3. **Pick a layout** — **GP2 / Symmetric** (default) reproduces GP2's own organisation:
-   faces grouped into GP2's canonical islands, laid out in three slices (top / left /
-   right-mirror) by planar projection, axis-aligned and paintable, with every body face
-   guaranteed present. **Dense** is the older angle-welded MaxRects pack (densest, but
-   less readable); it exposes the **weld-angle slider** and **packing strategy** below.
+   canonical islands in three slices (top / left / right-mirror), natural orientation,
+   every body face present. **GP2 / Compact** uses the same islands but packs them densely
+   with no slices/mirror (max space). **Dense** is the older angle-welded MaxRects pack; it
+   exposes the **weld-angle slider** and **packing strategy** below.
 4. **(Dense only) Tune the weld angle, packing strategy** (Shelf / Skyline / **MaxRects**)
    and **Rotate islands** toggle. MaxRects + rotate packs densest.
 5. **Save BMP template** — writes the 256x164 paletted wireframe. Open it in your paint
@@ -143,6 +143,17 @@ GP2_EXE=/path/to/GP2.EXE cargo test
 
 Reverse-engineering reference: [`docs/uv-mapping.md`](docs/uv-mapping.md) — the full,
 in-game-validated writeup of GP2's car UV-mapping format.
+
+**New in 0.4.0:**
+
+- **Natural orientation**: islands are no longer spun to arbitrary (30–45°) angles. Each
+  part is shown in a plain orthographic side/top view — length horizontal, up vertical —
+  with genuine geometry diagonals (a sloping cockpit, raked nose) preserved as-is.
+- **Tighter packing**: the symmetric layout packs largest-first, raising the global scale
+  so islands are bigger and far less of the canvas is wasted.
+- **New "GP2 / Compact" layout**: the same canonical islands, but MaxRects-packed with no
+  slices or mirror — maximum space/detail, at the cost of GP2-style organisation. Pick the
+  layout that suits the car: Symmetric (organised, mirrored), Compact (densest), or Dense.
 
 **New in 0.3.0:**
 
